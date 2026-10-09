@@ -1,18 +1,31 @@
 import Foundation
+import os
 import Testing
 @testable import EpochLLM
 
 private let imageBytes = Data([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-private let imageRequestStarted = AsyncStream<Void>.makeStream()
-private let imageRequestStopped = AsyncStream<Void>.makeStream()
 
 private final class ImageFixtureProtocol: URLProtocol, @unchecked Sendable {
+    struct CancellationSignals: Sendable {
+        let started: AsyncStream<Void>.Continuation
+        let stopped: AsyncStream<Void>.Continuation
+    }
+
+    static let cancellationHeader = "X-Image-Cancellation-Test-ID"
+    // URLProtocol callbacks can run concurrently with test registration and cleanup.
+    static let cancellationSignals = OSAllocatedUnfairLock(initialState: [String: CancellationSignals]())
+
+    private var signals: CancellationSignals? {
+        guard let id = request.value(forHTTPHeaderField: Self.cancellationHeader) else { return nil }
+        return Self.cancellationSignals.withLock { $0[id] }
+    }
+
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {
         if request.url?.lastPathComponent == "cancel" {
-            imageRequestStopped.continuation.yield(())
-            imageRequestStopped.continuation.finish()
+            signals?.stopped.yield(())
+            signals?.stopped.finish()
         }
     }
 
@@ -74,8 +87,8 @@ private final class ImageFixtureProtocol: URLProtocol, @unchecked Sendable {
                     #expect(request.httpMethod == "GET")
                     #expect(url.path == "/v1/predictions/\(scenario)")
                     if scenario == "cancel" {
-                        imageRequestStarted.continuation.yield(())
-                        imageRequestStarted.continuation.finish()
+                        signals?.started.yield(())
+                        signals?.started.finish()
                         return
                     }
                     if scenario == "poll-timeout" {
@@ -121,9 +134,12 @@ private func bodyJSON(_ request: URLRequest) throws -> [String: JSONValue] {
     return try JSONDecoder().decode([String: JSONValue].self, from: data)
 }
 
-private func imageSession() -> URLSession {
+private func imageSession(cancellationID: String? = nil) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [ImageFixtureProtocol.self]
+    if let cancellationID {
+        configuration.httpAdditionalHeaders = [ImageFixtureProtocol.cancellationHeader: cancellationID]
+    }
     return URLSession(configuration: configuration)
 }
 
@@ -217,8 +233,22 @@ func imageGenerationDeadlineStopsWaiting(scenario: String) async throws {
 }
 
 @Test(.timeLimit(.minutes(1))) func cancellingImageGenerationStopsPolling() async throws {
-    let session = imageSession()
-    defer { session.invalidateAndCancel() }
+    let imageRequestStarted = AsyncStream<Void>.makeStream()
+    let imageRequestStopped = AsyncStream<Void>.makeStream()
+    let cancellationID = UUID().uuidString
+    ImageFixtureProtocol.cancellationSignals.withLock {
+        $0[cancellationID] = .init(
+            started: imageRequestStarted.continuation,
+            stopped: imageRequestStopped.continuation
+        )
+    }
+    let session = imageSession(cancellationID: cancellationID)
+    defer {
+        session.invalidateAndCancel()
+        ImageFixtureProtocol.cancellationSignals.withLock { $0[cancellationID] = nil }
+        imageRequestStarted.continuation.finish()
+        imageRequestStopped.continuation.finish()
+    }
     let service = ReplicateImageService(apiKey: "test-key", pollingInterval: 0.001, session: session)
     let task = Task { try await service.generateImage(.init(prompt: "cancel")) }
     for await _ in imageRequestStarted.stream { break }
