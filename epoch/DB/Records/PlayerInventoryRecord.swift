@@ -19,55 +19,6 @@ nonisolated struct PlayerInventoryRecord: EpochRecord {
     var quantity: Int = 1
     var equipmentSlot: String? = nil
 
-    // Kept unchanged for databases created by the first migration.
-    static func migrateInitialTable(_ db: Database) throws {
-        try db.create(table: databaseTableName) { t in
-            t.column("id", .text).primaryKey().notNull()
-            t.column("createdAt", .datetime).notNull()
-                .defaults(sql: "CURRENT_TIMESTAMP")
-            t.column("updatedAt", .datetime).notNull()
-                .defaults(sql: "CURRENT_TIMESTAMP")
-            t.column("storyId", .text).notNull().references(StoryRecord.databaseTableName, onDelete: .cascade)
-            t.column("playerCharacterId", .text).notNull()
-            t.column("itemId", .text).notNull()
-            t.column("quantity", .integer).notNull()
-                .check { $0 > 0 }
-                .defaults(to: 1)
-            t.column("equipmentSlot", .text)
-            t.uniqueKey(["storyId", "id"])
-            t.foreignKey(
-                ["playerCharacterId"],
-                references: PlayerCharacterRecord.databaseTableName,
-                columns: ["id"],
-                onDelete: .cascade
-            )
-            t.foreignKey(
-                ["storyId", "playerCharacterId"],
-                references: PlayerCharacterRecord.databaseTableName,
-                columns: ["storyId", "id"]
-            )
-            t.foreignKey(["itemId"], references: ItemRecord.databaseTableName, columns: ["id"], onDelete: .cascade)
-            t.foreignKey(["storyId", "itemId"], references: ItemRecord.databaseTableName, columns: ["storyId", "id"])
-            t.uniqueKey(["playerCharacterId", "itemId"])
-            t.check(sql: "equipmentSlot IS NULL OR (length(trim(equipmentSlot)) > 0 AND quantity = 1)")
-        }
-
-        try db.create(index: "player_inventory_storyId", on: databaseTableName, columns: ["storyId"])
-        try db.create(
-            index: "player_inventory_playerCharacterId",
-            on: databaseTableName,
-            columns: ["playerCharacterId"]
-        )
-        try db.create(index: "player_inventory_itemId", on: databaseTableName, columns: ["itemId"])
-        try db.create(
-            index: "player_inventory_equipment_slot",
-            on: databaseTableName,
-            columns: ["playerCharacterId", "equipmentSlot"],
-            unique: true,
-            condition: Column("equipmentSlot") != nil
-        )
-    }
-
     static func migrateTable(_ db: Database) throws {
         try db.create(table: databaseTableName) { t in
             t.column("id", .text).primaryKey().notNull()
@@ -130,16 +81,5 @@ nonisolated struct PlayerInventoryRecord: EpochRecord {
             unique: true,
             condition: Column("equipmentSlot") != nil
         )
-    }
-
-    /// Rebuilds SQLite's table to make the existing player owner nullable, retaining every row.
-    static func migrateCharacterOwnership(_ db: Database) throws {
-        // Codable decoding supplies nil for the new optional NPC owner on legacy rows.
-        let inventory = try fetchAll(db)
-        try db.drop(table: databaseTableName)
-        try migrateTable(db)
-        for record in inventory {
-            try record.insert(db)
-        }
     }
 }

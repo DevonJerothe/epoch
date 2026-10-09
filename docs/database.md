@@ -2,7 +2,7 @@
 
 Epoch stores its local story worlds in `Documents/epoch.sqlite` using GRDB 7.11.1, a serialized `DatabaseQueue`, foreign-key enforcement, and WAL journaling. `DBManager.shared` opens and migrates the database at app startup. Startup failure displays a retry screen, and repository failures propagate to their caller. `DBManager(path: ":memory:")` creates an isolated database for tests and previews.
 
-`DatabaseMigrations` registers `v1_story_world` and `v2_character_effects_and_npc_inventory`, calling record-owned declarative migration functions in dependency order. The original player-only inventory schema is retained in `migrateInitialTable(_:)`; v2 rebuilds it atomically with nullable player/NPC ownership while retaining existing rows and timestamps, adds NPC attributes, and creates status effects. Table columns, constraints, relationships, and indexes are defined alongside their record. Add new named migrations for future schema changes; do not edit a migration once released. The initial migration assumes the original, empty model stubs have never created tables. GRDB also maintains its own migration bookkeeping table.
+`DatabaseMigrations` registers `v1_story_world`, calling record-owned declarative migration functions in dependency order. It creates the complete schema, including player/NPC inventory ownership, NPC attributes, and status effects. Table columns, constraints, relationships, and indexes are defined alongside their record. During development, builds use fresh databases; the initial migration does not upgrade earlier development schemas. Add new named migrations for future schema changes; do not edit a migration once released. GRDB also maintains its own migration bookkeeping table.
 
 ## Tables
 

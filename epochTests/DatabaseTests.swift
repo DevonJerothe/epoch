@@ -220,7 +220,7 @@ struct DatabaseTests {
         }
         let reopened = try DBManager(path: path)
         #expect(try StoryRepository(database: reopened).get(id: story.id)?.title == "Persistent")
-        #expect(try reopened.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM grdb_migrations") } == 2)
+        #expect(try reopened.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM grdb_migrations") } == 1)
     }
 
     @Test func statusEffectsSupportBothCharactersAndCustomModifiers() throws {
@@ -319,53 +319,5 @@ struct DatabaseTests {
         #expect(try repository.get(id: inventory.id) == nil)
         #expect(try repository.get(id: world.inventory.id) != nil)
         #expect(try repository.get(id: invalid.id) != nil)
-    }
-
-    @Test func upgradesLegacyInventoryWithoutLosingRows() throws {
-        let directory = URL.temporaryDirectory.appending(path: "epoch-v1-upgrade-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let path = directory.appending(path: "epoch.sqlite").path
-        let world = World()
-        do {
-            let queue = try DatabaseQueue(path: path)
-            var legacyMigrator = DatabaseMigrator()
-            legacyMigrator.registerMigration("v1_story_world") { db in
-                try StoryRecord.migrateTable(db)
-                try LocationRecord.migrateTable(db)
-                try PlayerCharacterRecord.migrateTable(db)
-                try ItemRecord.migrateTable(db)
-                try NonPlayerCharacterRecord.migrateTable(db)
-                try StoryMessageRecord.migrateTable(db)
-                try PlayerInventoryRecord.migrateInitialTable(db)
-                try QuestRecord.migrateTable(db)
-                try LoreItemRecord.migrateTable(db)
-                try StoryMessageActionRecord.migrateTable(db)
-            }
-            try legacyMigrator.migrate(queue)
-            try queue.write { db in
-                try world.story.record.insert(db)
-                try world.location.record.insert(db)
-                try world.player.record.insert(db)
-                try world.item.record.insert(db)
-                try db.execute(sql: "INSERT INTO player_inventory (id, createdAt, updatedAt, storyId, playerCharacterId, itemId, quantity, equipmentSlot) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", arguments: [world.inventory.id.uuidString, world.inventory.createdAt, world.inventory.updatedAt, world.story.id.uuidString, world.player.id.uuidString, world.item.id.uuidString, 1, "hand"])
-                // Legacy NPCs have no attributes column.
-                try db.execute(sql: "INSERT INTO non_player_character (id, storyId, name) VALUES (?, ?, ?)", arguments: [world.npc.id.uuidString, world.story.id.uuidString, "Keeper"])
-            }
-        }
-        let upgraded = try DBManager(path: path)
-        let inventory = try #require(try RecordRepository<PlayerInventoryRecord>(database: upgraded).get(id: world.inventory.id))
-        #expect(inventory.playerCharacterId == world.player.id)
-        #expect(inventory.nonPlayerCharacterId == nil)
-        #expect(inventory.quantity == 1)
-        #expect(inventory.equipmentSlot == "hand")
-        #expect(abs(inventory.createdAt.timeIntervalSince(world.inventory.createdAt)) < 0.001)
-        #expect(try RecordRepository<NonPlayerCharacterRecord>(database: upgraded).get(id: world.npc.id)?.attributes == [:])
-        let npcInventory = PlayerInventoryModel(storyId: world.story.id, nonPlayerCharacterId: world.npc.id, itemId: world.item.id)
-        try RecordRepository<PlayerInventoryRecord>(database: upgraded).save(npcInventory.record)
-        try upgraded.read { (db: Database) throws -> Void in
-            #expect(try Row.fetchAll(db, sql: "PRAGMA foreign_key_check").isEmpty)
-            #expect(try PlayerInventoryRecord.fetchCount(db) == 2)
-        }
     }
 }

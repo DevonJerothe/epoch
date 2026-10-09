@@ -38,6 +38,9 @@ nonisolated struct NonPlayerCharacterRecord: EpochRecord {
                 .defaults(to: "")
             t.column("disposition", .text).notNull()
                 .defaults(to: "neutral")
+            t.column("attributes", .text).notNull()
+                .check { Database.jsonIsValid($0) && Database.jsonType($0) == "object" }
+                .defaults(to: "{}")
             t.column("isAlive", .boolean).notNull()
                 .check { [0, 1].contains($0) }
                 .defaults(to: true)
@@ -59,13 +62,5 @@ nonisolated struct NonPlayerCharacterRecord: EpochRecord {
 
         try db.create(index: "non_player_character_storyId", on: databaseTableName, columns: ["storyId"])
         try db.create(index: "non_player_character_locationId", on: databaseTableName, columns: ["locationId"])
-    }
-
-    static func migrateAttributes(_ db: Database) throws {
-        try db.alter(table: databaseTableName) { t in
-            t.add(column: "attributes", .text).notNull()
-                .check { Database.jsonIsValid($0) && Database.jsonType($0) == "object" }
-                .defaults(to: "{}")
-        }
     }
 }
