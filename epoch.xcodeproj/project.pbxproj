@@ -6,15 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		001D81AC30781B8100215E4C /* EpochLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 001D81AB30781B8100215E4C /* EpochLLM */; };
+		E99F2BBE3076E9F600718CF1 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = E99F2BBD3076E9F600718CF1 /* GRDB */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		E9CEDC933054589C00A5D236 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E9CEDC7B3054589B00A5D236 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E9CEDC823054589B00A5D236;
-			remoteInfo = epoch;
-		};
-		E9CEDC9D3054589C00A5D236 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E9CEDC7B3054589B00A5D236 /* Project object */;
 			proxyType = 1;
@@ -24,25 +22,36 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B3A1D01030D65E1000B5E901 /* DESIGN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DESIGN.md; sourceTree = "<group>"; };
+		B3A1D01130D65E1000B5E901 /* docs/design/Style guide.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "docs/design/Style guide.pdf"; sourceTree = "<group>"; };
+		B3A1D01230D65E1000B5E901 /* docs/design/Story events tool call to UI.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "docs/design/Story events tool call to UI.pdf"; sourceTree = "<group>"; };
+		E99F2AB63075811A00718CF1 /* EpochLLM */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = EpochLLM; sourceTree = "<group>"; };
 		E9CEDC833054589B00A5D236 /* epoch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = epoch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9CEDC923054589C00A5D236 /* epochTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = epochTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		E9CEDC9C3054589C00A5D236 /* epochUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = epochUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B3A1D01430D65E1000B5E901 /* Exceptions for "epoch" folder in "epoch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = E9CEDC823054589B00A5D236 /* epoch */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E9CEDC853054589B00A5D236 /* epoch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B3A1D01430D65E1000B5E901 /* Exceptions for "epoch" folder in "epoch" target */,
+			);
 			path = epoch;
 			sourceTree = "<group>";
 		};
 		E9CEDC953054589C00A5D236 /* epochTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = epochTests;
-			sourceTree = "<group>";
-		};
-		E9CEDC9F3054589C00A5D236 /* epochUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = epochUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +61,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				001D81AC30781B8100215E4C /* EpochLLM in Frameworks */,
+				E99F2BBE3076E9F600718CF1 /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -62,22 +73,42 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E9CEDC993054589C00A5D236 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		001D81AA30781B8100215E4C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A91F42C830D65E1000B5E901 /* packages */ = {
+			isa = PBXGroup;
+			children = (
+				E99F2AB63075811A00718CF1 /* EpochLLM */,
+			);
+			path = packages;
+			sourceTree = "<group>";
+		};
+		B3A1D01330D65E1000B5E901 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				B3A1D01030D65E1000B5E901 /* DESIGN.md */,
+				B3A1D01130D65E1000B5E901 /* docs/design/Style guide.pdf */,
+				B3A1D01230D65E1000B5E901 /* docs/design/Story events tool call to UI.pdf */,
+			);
+			name = Design;
+			sourceTree = "<group>";
+		};
 		E9CEDC7A3054589B00A5D236 = {
 			isa = PBXGroup;
 			children = (
+				B3A1D01330D65E1000B5E901 /* Design */,
+				A91F42C830D65E1000B5E901 /* packages */,
 				E9CEDC853054589B00A5D236 /* epoch */,
 				E9CEDC953054589C00A5D236 /* epochTests */,
-				E9CEDC9F3054589C00A5D236 /* epochUITests */,
+				001D81AA30781B8100215E4C /* Frameworks */,
 				E9CEDC843054589B00A5D236 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -87,7 +118,6 @@
 			children = (
 				E9CEDC833054589B00A5D236 /* epoch.app */,
 				E9CEDC923054589C00A5D236 /* epochTests.xctest */,
-				E9CEDC9C3054589C00A5D236 /* epochUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -112,6 +142,8 @@
 			);
 			name = epoch;
 			packageProductDependencies = (
+				E99F2BBD3076E9F600718CF1 /* GRDB */,
+				001D81AB30781B8100215E4C /* EpochLLM */,
 			);
 			productName = epoch;
 			productReference = E9CEDC833054589B00A5D236 /* epoch.app */;
@@ -140,29 +172,6 @@
 			productReference = E9CEDC923054589C00A5D236 /* epochTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		E9CEDC9B3054589C00A5D236 /* epochUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = E9CEDCAC3054589C00A5D236 /* Build configuration list for PBXNativeTarget "epochUITests" */;
-			buildPhases = (
-				E9CEDC983054589C00A5D236 /* Sources */,
-				E9CEDC993054589C00A5D236 /* Frameworks */,
-				E9CEDC9A3054589C00A5D236 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				E9CEDC9E3054589C00A5D236 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				E9CEDC9F3054589C00A5D236 /* epochUITests */,
-			);
-			name = epochUITests;
-			packageProductDependencies = (
-			);
-			productName = epochUITests;
-			productReference = E9CEDC9C3054589C00A5D236 /* epochUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -180,10 +189,6 @@
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = E9CEDC823054589B00A5D236;
 					};
-					E9CEDC9B3054589C00A5D236 = {
-						CreatedOnToolsVersion = 26.6;
-						TestTargetID = E9CEDC823054589B00A5D236;
-					};
 				};
 			};
 			buildConfigurationList = E9CEDC7E3054589B00A5D236 /* Build configuration list for PBXProject "epoch" */;
@@ -195,6 +200,10 @@
 			);
 			mainGroup = E9CEDC7A3054589B00A5D236;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A91F42C930D65E1000B5E901 /* XCLocalSwiftPackageReference "packages/EpochLLM" */,
+				E99F2BBC3076E9F600718CF1 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E9CEDC843054589B00A5D236 /* Products */;
 			projectDirPath = "";
@@ -202,7 +211,6 @@
 			targets = (
 				E9CEDC823054589B00A5D236 /* epoch */,
 				E9CEDC913054589C00A5D236 /* epochTests */,
-				E9CEDC9B3054589C00A5D236 /* epochUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -216,13 +224,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E9CEDC903054589C00A5D236 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E9CEDC9A3054589C00A5D236 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -246,13 +247,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E9CEDC983054589C00A5D236 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -260,11 +254,6 @@
 			isa = PBXTargetDependency;
 			target = E9CEDC823054589B00A5D236 /* epoch */;
 			targetProxy = E9CEDC933054589C00A5D236 /* PBXContainerItemProxy */;
-		};
-		E9CEDC9E3054589C00A5D236 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E9CEDC823054589B00A5D236 /* epoch */;
-			targetProxy = E9CEDC9D3054589C00A5D236 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -400,6 +389,7 @@
 				DEVELOPMENT_TEAM = S5X4E78NMS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = epoch/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -437,6 +427,7 @@
 				DEVELOPMENT_TEAM = S5X4E78NMS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = epoch/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -472,7 +463,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S5X4E78NMS;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devonjerothe.epochTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -494,7 +485,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S5X4E78NMS;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.devonjerothe.epochTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -505,46 +496,6 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/epoch.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/epoch";
-			};
-			name = Release;
-		};
-		E9CEDCAD3054589C00A5D236 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = S5X4E78NMS;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.devonjerothe.epochUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = epoch;
-			};
-			name = Debug;
-		};
-		E9CEDCAE3054589C00A5D236 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = S5X4E78NMS;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.devonjerothe.epochUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = epoch;
 			};
 			name = Release;
 		};
@@ -578,16 +529,38 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E9CEDCAC3054589C00A5D236 /* Build configuration list for PBXNativeTarget "epochUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E9CEDCAD3054589C00A5D236 /* Debug */,
-				E9CEDCAE3054589C00A5D236 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A91F42C930D65E1000B5E901 /* XCLocalSwiftPackageReference "packages/EpochLLM" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = packages/EpochLLM;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E99F2BBC3076E9F600718CF1 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 7.11.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		001D81AB30781B8100215E4C /* EpochLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A91F42C930D65E1000B5E901 /* XCLocalSwiftPackageReference "packages/EpochLLM" */;
+			productName = EpochLLM;
+		};
+		E99F2BBD3076E9F600718CF1 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E99F2BBC3076E9F600718CF1 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E9CEDC7B3054589B00A5D236 /* Project object */;
 }
