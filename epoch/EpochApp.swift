@@ -12,43 +12,58 @@ struct epochApp: App {
 
     @State private var coordinator: Coordinator = .init()
     @State private var database = DBManager.shared
+    @State private var theme = ThemeManager()
 
     var body: some Scene {
         WindowGroup {
-            if let error = database.startUpError {
-                ContentUnavailableView {
-                    Label("Database Unavailable", systemImage: "externaldrive.badge.exclamationmark")
-                } description: {
-                    Text(error.localizedDescription)
-                } actions: {
-                    Button("Retry") { database.setup() }
-                }
-            } else {
-                TabView(selection: $coordinator.currentTab) {
-                    NavigationStack(path: $coordinator.storiesPath) {
-                        Text("Stories View")
-                            .navigationDestination(for: Coordinator.Destination.self) { destination in
-                                destinationView(for: destination)
-                            }
-                    }.tabItem {
-                        Image(systemName: "message")
-                        Text("Stories")
+            Group {
+                if let error = database.startUpError {
+                    ContentUnavailableView {
+                        Label("Database Unavailable", systemImage: "externaldrive.badge.exclamationmark")
+                    } description: {
+                        Text(error.localizedDescription)
+                    } actions: {
+                        Button("Retry") { database.setup() }
                     }
-                    .tag(Coordinator.Tab.stories)
+                } else {
+                    TabView(selection: $coordinator.currentTab) {
+                        NavigationStack(path: $coordinator.storiesPath) {
+                            Text("Stories View")
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(theme.colors.base)
+                                .navigationDestination(for: Coordinator.Destination.self) { destination in
+                                    destinationView(for: destination)
+                                }
+                        }.tabItem {
+                            Image(systemName: "message")
+                            Text("Stories")
+                        }
+                        .tag(Coordinator.Tab.stories)
 
-                    // Settings
-                    NavigationStack(path: $coordinator.settingsPath) {
-                        Text("Settings View")
-                            .navigationDestination(for: Coordinator.Destination.self) { destination in
-                                destinationView(for: destination)
-                            }
-                    }.tabItem {
-                        Image(systemName: "gearshape")
-                        Text("Settings")
+                        // Settings
+                        NavigationStack(path: $coordinator.settingsPath) {
+                            Text("Settings View")
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(theme.colors.base)
+                                .navigationDestination(for: Coordinator.Destination.self) { destination in
+                                    destinationView(for: destination)
+                                }
+                        }.tabItem {
+                            Image(systemName: "gearshape")
+                            Text("Settings")
+                        }
                     }
+                    .environment(database)
                 }
-                .environment(database)
             }
+            .environment(theme)
+            .preferredColorScheme(theme.colorScheme)
+            .tint(theme.colors.amber)
+            .foregroundStyle(theme.colors.textPrimary)
+            .epochTypography(.uiBody)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(theme.colors.base)
+            .toolbarBackground(theme.colors.base, for: .navigationBar, .tabBar)
         }
     }
 
@@ -57,8 +72,12 @@ struct epochApp: App {
         switch destination {
         case .storyView(let uUID):
             Text("story: \(uUID)")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.colors.base)
         case .storySettings(let uUID):
             Text("story settings: \(uUID)")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.colors.base)
         }
     }
 }

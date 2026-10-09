@@ -23,6 +23,12 @@
 - Route all navigation through [Coordinator.swift](epoch/Core/Navigation/Coordinator.swift), including tabs, pushes, pops, sheets, and dismissals.
 - Add routes and navigation actions to the coordinator; views must not own independent navigation paths or routing state.
 
+## UI Design
+
+- Before building or changing UI, read [DESIGN.md](DESIGN.md) for the design rules and token definitions. It takes precedence over visual mockups.
+- For component appearance, consult the [Style guide](docs/design/Style%20guide.pdf); for narrator passages and tool-call events, consult [Story events tool call to UI](docs/design/Story%20events%20tool%20call%20to%20UI.pdf).
+- Use [ThemeManager.swift](epoch/Shared/Managers/ThemeManager.swift) through the SwiftUI environment for design tokens. Apply text styles with `.epochTypography(_:)` so fonts, line spacing, and tracking scale with Dynamic Type. Extend DESIGN.md before introducing new tokens.
+
 ## Errors and Logging
 
 - Send every error caught in app code to [ErrorManager.swift](epoch/Shared/Managers/ErrorManager.swift) using `ErrorManager.shared.report(error, context: "Operation description")`.

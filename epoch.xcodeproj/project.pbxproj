@@ -22,14 +22,30 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		B3A1D01030D65E1000B5E901 /* DESIGN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DESIGN.md; sourceTree = "<group>"; };
+		B3A1D01130D65E1000B5E901 /* Style guide.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "docs/design/Style guide.pdf"; sourceTree = "<group>"; };
+		B3A1D01230D65E1000B5E901 /* Story events tool call to UI.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "docs/design/Story events tool call to UI.pdf"; sourceTree = "<group>"; };
 		E99F2AB63075811A00718CF1 /* EpochLLM */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = EpochLLM; sourceTree = "<group>"; };
 		E9CEDC833054589B00A5D236 /* epoch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = epoch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9CEDC923054589C00A5D236 /* epochTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = epochTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B3A1D01430D65E1000B5E901 /* Exceptions for epoch */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = E9CEDC823054589B00A5D236 /* epoch */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E9CEDC853054589B00A5D236 /* epoch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B3A1D01430D65E1000B5E901 /* Exceptions for epoch */,
+			);
 			path = epoch;
 			sourceTree = "<group>";
 		};
@@ -60,6 +76,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		B3A1D01330D65E1000B5E901 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				B3A1D01030D65E1000B5E901 /* DESIGN.md */,
+				B3A1D01130D65E1000B5E901 /* Style guide.pdf */,
+				B3A1D01230D65E1000B5E901 /* Story events tool call to UI.pdf */,
+			);
+			name = Design;
+			sourceTree = "<group>";
+		};
 		A91F42C830D65E1000B5E901 /* packages */ = {
 			isa = PBXGroup;
 			children = (
@@ -78,6 +104,7 @@
 		E9CEDC7A3054589B00A5D236 = {
 			isa = PBXGroup;
 			children = (
+				B3A1D01330D65E1000B5E901 /* Design */,
 				A91F42C830D65E1000B5E901 /* packages */,
 				E9CEDC853054589B00A5D236 /* epoch */,
 				E9CEDC953054589C00A5D236 /* epochTests */,
@@ -362,6 +389,7 @@
 				DEVELOPMENT_TEAM = S5X4E78NMS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = epoch/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -399,6 +427,7 @@
 				DEVELOPMENT_TEAM = S5X4E78NMS;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = epoch/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
