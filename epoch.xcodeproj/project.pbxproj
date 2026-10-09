@@ -23,15 +23,15 @@
 
 /* Begin PBXFileReference section */
 		B3A1D01030D65E1000B5E901 /* DESIGN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DESIGN.md; sourceTree = "<group>"; };
-		B3A1D01130D65E1000B5E901 /* Style guide.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "docs/design/Style guide.pdf"; sourceTree = "<group>"; };
-		B3A1D01230D65E1000B5E901 /* Story events tool call to UI.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "docs/design/Story events tool call to UI.pdf"; sourceTree = "<group>"; };
+		B3A1D01130D65E1000B5E901 /* docs/design/Style guide.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "docs/design/Style guide.pdf"; sourceTree = "<group>"; };
+		B3A1D01230D65E1000B5E901 /* docs/design/Story events tool call to UI.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = "docs/design/Story events tool call to UI.pdf"; sourceTree = "<group>"; };
 		E99F2AB63075811A00718CF1 /* EpochLLM */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = EpochLLM; sourceTree = "<group>"; };
 		E9CEDC833054589B00A5D236 /* epoch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = epoch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9CEDC923054589C00A5D236 /* epochTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = epochTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		B3A1D01430D65E1000B5E901 /* Exceptions for epoch */ = {
+		B3A1D01430D65E1000B5E901 /* Exceptions for "epoch" folder in "epoch" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -44,7 +44,7 @@
 		E9CEDC853054589B00A5D236 /* epoch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				B3A1D01430D65E1000B5E901 /* Exceptions for epoch */,
+				B3A1D01430D65E1000B5E901 /* Exceptions for "epoch" folder in "epoch" target */,
 			);
 			path = epoch;
 			sourceTree = "<group>";
@@ -76,14 +76,11 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		B3A1D01330D65E1000B5E901 /* Design */ = {
+		001D81AA30781B8100215E4C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				B3A1D01030D65E1000B5E901 /* DESIGN.md */,
-				B3A1D01130D65E1000B5E901 /* Style guide.pdf */,
-				B3A1D01230D65E1000B5E901 /* Story events tool call to UI.pdf */,
 			);
-			name = Design;
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		A91F42C830D65E1000B5E901 /* packages */ = {
@@ -94,11 +91,14 @@
 			path = packages;
 			sourceTree = "<group>";
 		};
-		001D81AA30781B8100215E4C /* Frameworks */ = {
+		B3A1D01330D65E1000B5E901 /* Design */ = {
 			isa = PBXGroup;
 			children = (
+				B3A1D01030D65E1000B5E901 /* DESIGN.md */,
+				B3A1D01130D65E1000B5E901 /* docs/design/Style guide.pdf */,
+				B3A1D01230D65E1000B5E901 /* docs/design/Story events tool call to UI.pdf */,
 			);
-			name = Frameworks;
+			name = Design;
 			sourceTree = "<group>";
 		};
 		E9CEDC7A3054589B00A5D236 = {
