@@ -26,33 +26,27 @@ struct epochApp: App {
                         Button("Retry") { database.setup() }
                     }
                 } else {
-                    TabView(selection: $coordinator.currentTab) {
-                        NavigationStack(path: $coordinator.storiesPath) {
-                            Text("Stories View")
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(theme.colors.base)
-                                .navigationDestination(for: Coordinator.Destination.self) { destination in
-                                    destinationView(for: destination)
+                    NavigationStack(path: $coordinator.path) {
+                        Text("Stories View")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(theme.colors.base)
+                            .navigationTitle("Stories")
+                            .navigationBarTitleDisplayMode(.large)
+                            .toolbar {
+                                ToolbarItemGroup(placement: .topBarTrailing) {
+                                    Button("Settings", systemImage: "gearshape") {
+                                        coordinator.push(.settings)
+                                    }
+                                    Button("New Story", systemImage: "plus") {
+                                        coordinator.push(.newStory)
+                                    }
                                 }
-                        }.tabItem {
-                            Image(systemName: "message")
-                            Text("Stories")
-                        }
-                        .tag(Coordinator.Tab.stories)
-
-                        // Settings
-                        NavigationStack(path: $coordinator.settingsPath) {
-                            Text("Settings View")
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(theme.colors.base)
-                                .navigationDestination(for: Coordinator.Destination.self) { destination in
-                                    destinationView(for: destination)
-                                }
-                        }.tabItem {
-                            Image(systemName: "gearshape")
-                            Text("Settings")
-                        }
+                            }
+                            .navigationDestination(for: Coordinator.Destination.self) { destination in
+                                destinationView(for: destination)
+                            }
                     }
+                    .environment(coordinator)
                     .environment(database)
                 }
             }
@@ -63,13 +57,22 @@ struct epochApp: App {
             .epochTypography(.uiBody)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(theme.colors.base)
-            .toolbarBackground(theme.colors.base, for: .navigationBar, .tabBar)
+            .toolbarBackground(theme.colors.base, for: .navigationBar)
         }
     }
 
     @ViewBuilder
     private func destinationView(for destination: Coordinator.Destination) -> some View {
         switch destination {
+        case .newStory:
+            Text("New Story")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.colors.base)
+        case .settings:
+            Text("Settings View")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.colors.base)
+                .navigationTitle("Settings")
         case .storyView(let uUID):
             Text("story: \(uUID)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

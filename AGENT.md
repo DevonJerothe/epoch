@@ -39,4 +39,4 @@
 ## Working Practices
 
 - Keep changes focused and preserve unrelated work. Update these guidelines concisely as conventions evolve.
-- Do not run tests or builds on this machine unless explicitly requested; Xcode simulators are not installed.
+- Do not run tests or builds on this machine unless explicitly requested. if tests are run, they should only run for the related changes.
