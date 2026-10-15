@@ -1,379 +1,161 @@
-# Epoch Design System
+# Epoch Design System: Paper
 
 This file is the source of truth for how Epoch looks and behaves. Follow it whenever you build or change UI. If a mockup and this file disagree, this file wins.
 
-- Platform: iOS (SwiftUI), dark appearance only.
-- Visual reference: the "Epoch iOS UI" design canvas (https://claude.ai/artifact/CiFX4ASXDNdrw9BvEjsK5D).
+- Visual reference: the design sheet [Paper direction.webp](docs/design/Paper%20direction.webp) and the "Epoch Paper Direction" canvas (https://claude.ai/artifact/ETxeb6vmhzFzGrSXfLmBJE).
+- Platform: iOS (SwiftUI). Light "Paper" appearance by default, with a "Lamplight" dark appearance.
 - Product: an RPG text adventure. An LLM narrates the story and makes tool calls (stats, inventory, checks, quests) that the app renders as game events.
-
----
+- Goal: the app should feel like reading a book. Few UI elements, no unnecessary containers, context one tap away.
+- Tokens live in [ThemeManager.swift](epoch/Shared/Managers/ThemeManager.swift). Views refer to tokens only; never hard-code hex values, sizes or fonts.
 
 ## 1. Principles
 
-1. **Narration leads.** Story text is the hero of the app. It is never boxed, carded or bordered. Everything else steps back from it.
-2. **Game events are quiet.** Tool-call results show as one muted line beneath the passage they belong to, not as cards.
-3. **Fill, not lines.** No borders, dividers, hairlines or drop shadows. Layers are separated only by steps of surface fill and by spacing.
-4. **Soft geometry.** Generous, continuous (squircle) corner radii. Buttons and chips are capsules.
-5. **Amber means "you."** The amber accent is reserved for primary actions and for moments that need the player (a roll, a level-up, a new objective).
-6. **Color never works alone.** Every colored meaning (gain, loss, condition) also carries a sign, word or icon.
-
----
+1. **Set it like a book.** Narration runs full measure inside 28 pt margins. No boxes, bubbles or cards around any voice.
+2. **Rules mean something.** A hairline appears only to separate rows you can act on, or as a meter. Never as decoration.
+3. **Color is ink, not paint.** Meaning colors tint words and thin lines. They never fill a surface. Every color also carries a sign or word.
+4. **Your words, in quill.** Quill blue is the reader's ink: player turns, suggested actions, and anything waiting on the player.
+5. **Context, one tap away.** The folio at the foot of the page shows health, gold and conditions as text. Names in narration open margin notes. The Codex (Hero, Pack, Journal) is one sheet.
+6. **One real container.** Sheets (Codex, margin note) are the only raised surface. The only filled button is Roll.
 
 ## 2. Color
 
-All values are sRGB. Use them as named tokens in an asset catalog or a `Color` extension; never hard-code hex values in views.
-
-### Surfaces (darkest to lightest)
-
-| Token | Hex | RGB | Use |
+| Token | Paper | Lamplight | Use |
 |---|---|---|---|
-| `scrim` | `#07080A` | 7, 8, 10 | Area behind a presented sheet |
-| `base` | `#0E1014` | 14, 16, 20 | Screen background |
-| `sheet` | `#13161B` | 19, 22, 27 | Sheet background |
-| `card` | `#15181D` | 21, 24, 29 | Story cards, world cards, illustration placeholder |
-| `control` | `#1A1D23` | 26, 29, 35 | Chips, composer field, secondary buttons, segmented-control track |
-| `player` | `#1B1E24` | 27, 30, 36 | Player message bubble |
-| `raised` | `#20242C` | 32, 36, 44 | Avatars, tiles inside cards, item rows in sheets |
-| `track` | `#23272F` | 35, 39, 47 | Empty part of progress bars |
-| `selected` | `#2C313B` | 44, 49, 59 | Selected segment |
-| `grabber` | `#3A404C` | 58, 64, 76 | Sheet grabber |
+| `paper` | `#F4EFE4` | `#1C1A17` | Screen ground |
+| `leaf` | `#ECE5D6` | `#24211D` | Sheets |
+| `press` | `#E4DBC6` | `#2E2A25` | Pressed state, highlighted word, plate while drawing |
+| `rule` | `#D6CBB7` | `#3A352E` | Hairlines, meter tracks |
+| `grain` | `#C9BDA7` | `#4A443B` | Grabber, ornaments, dotted leaders (decoration only) |
+| `ink` | `#29241E` | `#E6DED0` | Narration, titles (13.4:1) |
+| `inkSoft` | `#4F473E` | `#C6BDAE` | Descriptions, icons, secondary text (8.0:1) |
+| `inkMuted` | `#6B6155` | `#A39886` | Event lines, eyebrows, meta. Floor for readable text (5.3:1) |
+| `inkFaint` | `#9A8F80` | `#6E665A` | Separators, entity underline. Never readable text |
+| `quill` | `#2E4A6E` | `#9DB5D6` | Player text, story actions, primary button, unread dots |
+| `rubric` | `#9B3A2A` | `#D98B78` | Health, damage, failed checks |
+| `moss` | `#4D6A3F` | `#9DB98A` | Healing, items gained, passed checks, "New" |
+| `plum` | `#6E4A6B` | `#C29BBE` | Conditions |
+| `ochre` | `#85641F` | `#D2B270` | Gold, XP |
 
-### Text
-
-| Token | Hex | RGB | Use |
-|---|---|---|---|
-| `textPrimary` | `#EDE7DB` | 237, 231, 219 | Narration, titles, primary labels |
-| `textSecondary` | `#CFC8BB` | 207, 200, 187 | Descriptions, player text, secondary labels |
-| `textMuted` | `#8E887D` | 142, 136, 125 | Event lines, captions, metadata. Lowest color allowed for readable text (5.4:1 on `base`) |
-| `textFaint` | `#6E6A62` | 110, 106, 98 | Chevrons and decoration only, never for text a player must read |
-
-### Accent
-
-| Token | Hex | RGB | Use |
-|---|---|---|---|
-| `amber` | `#E5A85A` | 229, 168, 90 | Primary buttons, links, text buttons, unread dots |
-| `amberLight` | `#F2C287` | 242, 194, 135 | Pressed state, text on amber tints |
-| `onAmber` | `#1A1206` | 26, 18, 6 | Text and icons on amber fills |
-| `amberWash` | `#1E1A14` | 30, 26, 20 | Surfaces that need the player (roll card, level-up, active quest) |
-| `amberTint` | `#2A2116` | 42, 33, 22 | Icon wells, secondary amber buttons |
-| `amberSelected` | `#3A2C17` | 58, 44, 23 | Selected chip, tile or option |
-
-### Game meaning
-
-| Token | Hex | RGB | Use |
-|---|---|---|---|
-| `gain` | `#7CC4B4` | 124, 196, 180 | Healing, items gained, passed checks |
-| `gainTint` | `#1E2A28` | 30, 42, 40 | "New" badge background |
-| `loss` | `#E07A6E` | 224, 122, 110 | Damage, failed checks, combat, player HP bar |
-| `enemy` | `#B9665C` | 185, 102, 92 | Enemy HP bar |
-| `condition` | `#9CC0E8` | 156, 192, 232 | Status effects (Soaked, Poisoned…) |
-| `conditionTint` | `#161D26` | 22, 29, 38 | Condition card background |
-| `gold` | `#D9C38A` | 217, 195, 138 | Currency icon |
-| `entityLink` | `#4F6E67` | 79, 110, 103 | Underline on item/person names inside narration |
-
-Stamina bars use `amber`. Health bars use `loss`.
-
----
+Lamplight values are a starting point and need a contrast pass before shipping.
 
 ## 3. Typography
 
-Two families:
-- **Literata** (serif, SIL Open Font License; bundle the variable font with the optical-size axis) for anything the narrator or the world says: narration, story and item names, descriptions, captions.
-- **SF Pro** (system font) for all interface text. The mockups use Figtree as a stand-in; ship SF Pro.
+- **Newsreader** (variable, optical size; SIL OFL) for everything the world says.
+- **SF Pro** for machinery (mockups use Figtree as a stand-in).
 
-Every style must scale with Dynamic Type. Use `Font.custom(_:size:relativeTo:)` for Literata with the text style listed.
+| Style | Font | Size / leading | Use |
+|---|---|---|---|
+| `display` | Newsreader 500 | 38 / 42 | Screen titles |
+| `title` | Newsreader 500 | 25 / 30 | Story, quest, item titles (22–24 in sheets) |
+| `narration` | Newsreader 400 | 18 / 29 | Narrator |
+| `player` | Newsreader Italic, `quill` | 17 / 26 | Player turns, suggestions (15), story actions |
+| `description` | Newsreader 400 | 15.5 / 23 | Descriptions, recaps, flavor (italic) |
+| `caption` | Newsreader Italic | 12.5 / 18 | Plate captions, helper lines |
+| `eyebrow` | SF Pro Semibold, uppercase, +0.14em | 10.5 | Section labels, chapter labels |
+| `event` | SF Pro Medium, uppercase, +0.08em, tabular | 11 | Game event lines |
+| `ui` | SF Pro Medium | 12–15 | Folio, filters, Done, utility actions |
 
-| Style | Font | Size / line height | Dynamic Type base | Use |
-|---|---|---|---|---|
-| `largeTitle` | SF Pro Bold, tracking −0.01em | 34 / 41 | `.largeTitle` | Screen title ("Stories") |
-| `storyTitle` | Literata Semibold | 23 / 28 | `.title2` | Story card title, hero name |
-| `itemTitle` | Literata Semibold | 19 / 24 | `.title3` | Item, quest and roll names |
-| `narration` | Literata Regular | 18 / 30 (1.65) | `.body` | Narrator text in the feed |
-| `description` | Literata Regular | 15 / 22 | `.subheadline` | Story descriptions, recaps, item flavor text |
-| `caption` | Literata Italic | 13 / 18 | `.footnote` | Illustration captions, "narrator is writing" |
-| `headline` | SF Pro Semibold | 17 / 22 | `.headline` | Buttons; nav titles use 16 |
-| `uiBody` | SF Pro Regular | 15 / 22 | `.subheadline` | Player messages, list rows, UI body |
-| `eventLine` | SF Pro Regular, tabular figures | 13 / 18 | `.footnote` | Game event lines |
-| `eyebrow` | SF Pro Semibold, uppercase, tracking +0.06em | 12 / 16 | `.caption` | Section labels, world/chapter labels |
+All styles scale with Dynamic Type. Changing numbers use monospaced digits.
 
-Rules:
-- Narration is always `narration` in `textPrimary`. Do not bold or color narration, except for entity links (section 7).
-- All numbers that change (HP, gold, rolls) use monospaced digits (`.monospacedDigit()`).
+## 4. The reading view
 
----
-
-## 4. Corner radius
-
-Always use continuous corners (`RoundedRectangle(cornerRadius:style: .continuous)`). A shape nested inside another uses about 6 pt less radius per level of inset.
-
-| Token | Value | Use |
-|---|---|---|
-| `sm` | 10 | Segmented-control track (segments inside use 8) |
-| `md` | 18 | Bag tiles, rows and toggles inside cards |
-| `lg` | 22 | Feed illustrations, info cards, roll card, condition card |
-| `xl` | 28 | Story cards, world cards, top corners of sheets |
-| `capsule` | height ÷ 2 | Buttons, chips, composer, progress bars, status tags |
-| `bubble` | 20, with a 6 bottom-trailing corner | Player message |
-
----
-
-## 5. Spacing and layout
-
-A 4-point scale: **4, 8, 12, 16, 20, 24, 32, 40**.
-
-| Context | Value |
-|---|---|
-| Screen edge for cards and lists | 16 |
-| Screen edge for headers and forms | 20 |
-| Screen edge for narration | 22 |
-| Between story passages | 18 |
-| Passage to its event line | 10 |
-| Between cards | 18 |
-| Between sections | 28 |
-| Card inner padding | 16–18 |
-
-Layout rules:
-- Respect safe areas. Do not draw fake status bars.
-- The story feed is anchored to the bottom (newest at the bottom) and scrolls up.
-- No tab bar. In-game panels (Bag, Character, Journal) are sheets, so the player never loses their place in the story.
-
----
-
-## 6. Sizes
-
-| Element | Size |
-|---|---|
-| Minimum tap target | 44 × 44 |
-| Primary and secondary buttons | 50 tall |
-| Composer field, bag button | 44 tall |
-| Suggestion chip, send button | 36 tall |
-| Roll button | 108 circle |
-| Avatar: nav bar / card / sheet header | 30 / 34 / 64 |
-| Icon: nav bar / inline / event line | 22 / 18 / 13 |
-| Progress bar height | 4 (6 in sheets) |
-| Story card illustration | full card width × 184 |
-| Feed illustration | screen width − 24 × 210 |
-| Sheet grabber | 36 × 5, `grabber` |
-
----
-
-## 7. The story feed
-
-The feed has three voices that must never look alike:
+Three voices that must never look alike:
 
 | Voice | Treatment |
 |---|---|
-| **Narrator** | `narration` style in `textPrimary`, no container, full width inside the 22 pt margin |
-| **Player** | Right-aligned bubble, `player` fill, `bubble` radius, `uiBody` in `textSecondary`, max width about 270 |
-| **Game** (tool calls) | One `eventLine` under the passage, `textMuted`, with 13 pt tinted icons, no container |
+| **Narrator** | Printed ink, full measure, 28 pt margins. Names the game knows are dotted underlines. |
+| **Player** | Quill italic, indented 22 pt. No bubble, no name. |
+| **Game** | A marginal note under the passage, 10 pt below it. Only the changed value takes a meaning ink. |
 
-### Event line
-- Shows every event from one narrator turn in a single wrapping row, in the order they happened, separated by 14 pt.
-- Each event is a 13 pt SF Symbol tinted with its meaning color, followed by short muted text. Only the changed number (e.g. "−6 HP") may take the meaning color and semibold weight.
-- Tapping the line expands the detail (dice math, item description).
-- Fades in 200 ms after its passage finishes streaming.
+- **Running head:** back, centered story name (eyebrow) over chapter and place (italic 14), Journal ribbon with a quill dot when updated. No nav bar fill.
+- **Feed:** bottom-anchored, top edge fades into the paper (56 pt mask).
+- **Narrator:** `narration` in `ink`. Known names get a dotted underline in `inkFaint` (1.5 pt, offset 4). Tap opens a margin note.
+- **Player:** `player` style, indented 22 pt. No bubble, no label.
+- **Game events:** one `event` line 10 pt under the passage, `inkMuted`, events 14 pt apart. Only the changed value or sign takes a meaning ink. Tap expands the detail.
+- **Plates (illustrations):** part of the narrator's message, above the passage, bleeding 12 pt past the margin, square corners. Caption "Plate III. …" centered. Drawing: hold the full height in `press` with three dots and "The illustrator is at work". Failed: collapse silently. Ready: fade in over 300 ms. Prompt the image model for a muted sepia aquatint style.
+- **Folio:** a 1 pt `rule` across the page whose 2 pt `rubric` fill is the health meter. Below it, "18/30 · 42 gold · Soaked" (opens Hero) and three icon buttons: Hero, Pack (moss dot for new items), Journal.
+- **Composer:** suggestion line in quill italic, then a writing line: italic placeholder "What do you do?" over a hairline, with a 32 pt outlined quill send button. Suggestions read as choices in a gamebook.
 
-### Entity links in narration
-Items, people and places the narrator names that exist in game state are tappable: text in `#F4E6CB`, underline in `entityLink`, 1.5 pt thick, offset 4 pt. Tapping opens the item in the Bag or the entry in the Journal.
+## 5. Tool calls, as notes
 
-### Illustrations
-Generated images for key story moments are part of the narrator message:
-- Sit above the passage they illustrate, with 12 pt bleed past the narration margin on each side (`lg` radius, no frame).
-- Optional `caption` below, inset to the narration margin.
-- **Generating:** reserve the full 210 pt height with a `card` fill and a three-dot amber indicator with "Illustrating" in `caption` style, so text never jumps.
-- **Failed:** collapse the slot silently. Never show an error for a missing image.
-- **Ready:** fade in over 300 ms. Tap opens full screen.
+Tool names are suggestions; match them to the real tool schema. Event text is set in the `event` style; only the value or sign takes the listed ink.
 
-### Moments that need the player
-These are the only events that get a surface (`amberWash` fill, `lg` radius):
-- **Roll requested:** the composer is replaced by a roll panel (`card` fill, `xl` top corners) with the roll name, formula and target, a 108 pt amber Roll button, optional modifiers (e.g. Lucky Coin), and "Change my action". If the player scrolls away, show a compact roll card inline in the feed.
-- **Level up:** an inline card with the new level, gains, and a "Choose" button.
+| Tool | Event line | Ink |
+|---|---|---|
+| `modify_stat` | "−6 HEALTH" / "+7 HEALTH" | `rubric` / `moss` |
+| `add_item` / `remove_item` | "+ RUSTED ABBEY KEY" / "− HEALING DRAUGHT, 1 LEFT" | `moss` / `inkMuted` |
+| `roll_check` | "PERCEPTION 15 VS 12, PASSED" | `moss` passed, `rubric` failed |
+| `apply_condition` | "SOAKED −1 STEALTH" | `plum` |
+| `modify_gold`, `grant_xp` | "+12 GOLD · +25 XP" | `ochre` |
+| `update_quest` | "JOURNAL: NEW OBJECTIVE" with a quill dot | `quill` dot |
+| `move_location` | "NOW AT THE CRYPT STAIR" | `inkMuted` |
+| `request_roll` | Replaces the composer (section 6) | `quill` |
 
-### Narrator states
-- **Writing:** three amber dots plus "The narrator is writing" in `caption` style.
-- **Error:** muted line "The narrator lost the thread. Your turn was not spent." with a Retry chip.
+## 6. Moments that need the player
 
-### Top of the feed
-- Nav bar: back to Stories, centered story name with chapter/time below (in combat: "In combat · Round N" in `loss`), then Journal (with an amber dot when updated) and the Character avatar.
-- Vitals strip: borderless, centered row of HP bar, stamina bar, gold and active conditions in 12 pt semibold. Tap opens Character.
+- **Roll requested:** replaces the composer. Eyebrow "A test of Perception" in quill, italic formula ("Roll a d20, add 2. You need 12."), line-drawn d20, the one filled button (180 × 50, quill, paper text), optional Lucky Coin checkbox, "Change my action" text link.
+- **Level up:** same pattern: centered eyebrow, italic summary, one filled "Choose" button. (Not drawn yet.)
 
-### Composer
-- A horizontal row of suggested-action chips above.
-- Bag button (44 circle, `control`), a capsule text field ("What do you do?", `control`), and a 36 pt amber send button inside the field.
+## 7. Pieces
 
----
+- **Actions:** one filled button per screen at most, and only for a moment that waits on you (capsule, `quill` fill, `paper` text). Story actions are quill italic. Utility actions are small sans in `inkSoft`.
+- **Meter rule:** a 1 pt `rule` track with a 2 pt meaning-ink fill. The rule above the composer is the health line.
+- **Tabs:** section tabs are serif words with a 1.5 pt underline on the current one. Filters are sans words set in weight (semibold marks current). No segmented tracks.
+- **Lists and leaders:** stats use dotted leaders in `grain`, like a table of contents. Lists of things you can act on get hairlines between rows.
+- **Sheets:** the one real container: `leaf` laid over the page, 16 pt top corners, grabber, no shadow; the page behind dims 16%.
+- **Icons:** 20 pt line icons, 1.5 stroke (SF Symbols, regular weight, outline). Never emoji.
 
-## 8. Tool call → UI mapping
+## 8. Codex sheet
 
-Tool names are suggestions; match them to the real tool schema.
+Large detent, `leaf`, 16 pt top corners, grabber, page behind dims 16%. Serif tabs Hero / Pack / Journal with a 1.5 pt underline on the current one, and "Done" in quill.
 
-| Tool | Event line | Icon / color | Also updates |
-|---|---|---|---|
-| `modify_stat` (HP down) | "−6 HP" | `heart`, `loss` | Vitals strip |
-| `modify_stat` (HP up) | "+7 HP" | `heart`, `gain` | Vitals strip |
-| `add_item` | "Rusted Abbey Key" | `plus`, `gain` | Bag ("New" badge) |
-| `remove_item` | "Healing Draught, 1 left" | `minus`, `textSecondary` | Bag |
-| `roll_check` (resolved) | "Perception 15 vs 12, passed" | `dice`, `gain` / `loss` | — |
-| `request_roll` | — (roll panel, see section 7) | amber | Composer |
-| `apply_condition` | "Soaked: −1 Stealth" | `drop`, `condition` | Vitals strip, Character |
-| `update_quest` | "Journal: new objective" | `book.closed`, `amber` | Journal dot |
-| `move_location` | "Now at The Crypt Stair" | `mappin`, `textSecondary` | Nav subtitle |
-| `start_combat` / `end_combat` | "Combat begins" / "Victory · +80 XP" | sword glyph, `loss` / `gain` | Combat vitals |
-| `modify_gold`, `grant_xp` | "+12 gold · +25 XP" | `circle` coin, `gold` / `amber` | Character |
-| `grant_xp` crossing a level | Level-up card | amber | Character |
-| `generate_image` | Illustration in the message | — | Story card cover (optional) |
+- **Hero:** name, class line, XP meter rule (quill), vitals as numbers with meter rules (Health rubric, Stamina inkSoft), Armor and Gold as numbers. Attributes in two columns with dotted leaders; calling stat in quill. Conditions as a sentence. "Carrying in hand" as a sentence.
+- **Pack:** sans filters (weight marks current), "12 of 20". Rows divided by hairlines: line-drawn glyph, name, italic type, count or a small tag ("New" in moss, "In hand"). The selected row expands in place with flavor text, quill "Drink it", sans Give and Drop, and "Using an item takes your turn."
+- **Journal:** filters Quests / People / Places / Lore. "The story so far" in italic. Followed quest with drawn checks (moss), current (quill dot), upcoming (hollow). Other quests as hairline rows. "Finished, 3".
 
----
+## 9. Margin note
 
-## 9. Screens
+Tapping a dotted name highlights it in `press` and raises a short sheet: line sketch, eyebrow (kind and status), title, italic description, dotted-leader facts (Found, Mentioned), a quill story action ("Try it on the iron door") and "Open in Pack/Journal".
 
-| Screen | Key points |
-|---|---|
-| **Stories** | Large title, Settings and + in the nav bar. Vertical list of story cards (`card`, `xl`): illustration on top with a status tag (capsule on `base`, e.g. "In combat", "Chapter 4"), then eyebrow (world · chapter), `storyTitle`, `description`, and a footer with the hero's avatar, name, level, class, HP and last played time. Tapping a card resumes the story. Missing illustration falls back to the world's cover art. |
-| **Stories, first run** | Large title, a welcome line in Literata 20, a swipeable row of 270 pt world cards (illustration, genre eyebrow, name, one-line pitch, "Begin here"), page dots, then "Describe your own world" and "Surprise me with a ready-made hero." Picking a world opens hero creation with that world preselected. |
-| **New chronicle** | Steps: World → Hero → Opening scene. Tone segmented control, name field, calling chips, attribute steppers with points left. Pinned bottom bar with Back and the primary action. |
-| **Story feed** | See section 7. |
-| **Combat** | Same feed plus a two-column vitals row (player HP and enemy HP) and the enemy's intent in muted text. |
-| **Bag (sheet)** | Medium/large detents. Title, slot count, close. Segmented filter (All, Gear, Consumable, Quest). 4-column tile grid (`raised`, `md`); selected tile in `amberSelected`; equipped badge "E"; "NEW" badge in `gainTint`/`gain`; empty slots in a slightly darker fill. Detail panel with item art, name, type, flavor text and actions (primary Use/Drink, then Give, Drop). Using an item takes the player's turn and sends the action to the narrator. |
-| **Character (sheet)** | Large detent. Avatar, name, level and class, XP bar, vitals tiles (Health, Stamina, Armor/Gold), 3 × 2 attribute grid (highlight the class's key stat in amber), conditions, equipped slots. |
-| **Journal (sheet)** | Segmented: Quests, People, Places, Lore. "The story so far" recap card, active quest on `amberWash` with checked, current and upcoming objectives, then other quests and "Completed (n)". |
+## 10. Stories home and first run
 
----
+- **Stories:** small icon buttons (settings, new story in quill), `display` title, italic subtitle. Each story is a plate (150 tall), eyebrow (chapter, with state in a meaning ink), title, description, sans meta line. Stories are separated by a small rule-diamond-rule ornament, not cards.
+- **First run:** the same layout as Stories, so a new player learns one list. Title "Stories", italic line "Choose one to begin, or describe your own" (the last words a quill link). Each world is a plate, genre eyebrow, title and one-line pitch, with the same ornament between them. No hero, progress or meta line. Tapping a world opens Story details.
+- **Story details:** a scrolling page that tells the player what they are getting into before they start. Back button, full-width plate (240 tall), genre eyebrow, `display` title, premise in `narration` style, then dotted-leader facts (Length, Mood, Begins in). Sections, each with an eyebrow: "You begin as" (line-sketch portrait, pre-made hero name, class, one sentence, key stats, quill "Make your own hero instead"), "Your first quest" (title and italic objective), "People you may meet" and "From the archive" (pre-generated people and lore as hairline rows with an italic line each; "Others stay unnamed until you meet them"), "You set out with" (starting items as a sentence). The page ends with the filled quill button "Begin as Wren". All of this content is pre-generated with the world and seeds the Journal and Pack once play begins.
 
-## 10. Components
+## 11. Spacing and sizes
 
-- **Primary button:** 50 tall, capsule, `amber` fill, `onAmber` text, `headline`.
-- **Secondary button:** 50 tall, capsule, `control` fill, `textPrimary` text.
-- **Text button:** `amber` text, semibold 15, at least 44 tall.
-- **Chip:** 36 tall, capsule, `control` fill, `textSecondary` 14. Selected: `amberSelected` fill, `amberLight` text.
-- **Segmented control:** `control` track, `sm` radius, 2 pt inset; selected segment `selected` fill, radius 8, 32 tall.
-- **Progress bar:** 4 tall capsule, `track` background, meaning color fill.
-- **Sheet:** `sheet` fill, `xl` top corners, grabber 36 × 5, over a `scrim` backdrop. Close with "Done" (amber text) or a 32 pt circular close button on `raised`.
-- **Icons:** SF Symbols, regular weight, outline style (`heart`, `bolt`, `bag`, `book.closed`, `dice`, `key`, `mappin`, `drop`, `shield`, `flask`, `plus`, `minus`, `chevron.left`, `arrow.up`, `slider.horizontal.3`, `pencil`, `eye`). Never emoji.
+- 4 pt scale. Margins: 28 for narration and lists, 20 for the folio and composer, 12 for edge icon buttons.
+- 22 pt between passages, 10 pt passage to event line, 14 pt between events, 22 pt player indent.
+- Tap targets 44 × 44. Icons are 20 pt line icons, 1.5 stroke. Never emoji.
 
----
-
-## 11. Motion and haptics
+## 12. Motion and haptics
 
 | What | Behavior |
 |---|---|
 | Narration | Streams in as it is generated |
 | Event line | Fades in 200 ms after its passage completes |
 | Vitals | Count to the new value over 400 ms |
-| Illustration | Fades in over 300 ms into its reserved space |
+| Plate | Fades in over 300 ms into its reserved space |
 | Roll | Die tumbles for 600 ms; light haptic on landing |
 
 With Reduce Motion on, replace all of these with simple cross-fades.
 
----
+## 13. Accessibility
 
-## 12. Accessibility
-
-- Text contrast at least 4.5:1 (3:1 for 24 pt and larger). Nothing readable below `textMuted`.
+- Readable text no lighter than `inkMuted` (4.5:1 or better on `paper` and `leaf`).
 - Tap targets at least 44 × 44.
-- Icon-only buttons need an accessibility label ("Open bag", "Send", "Journal").
+- Icon-only buttons need an accessibility label ("Hero", "Pack", "Journal", "Send").
 - Event lines read as one VoiceOver element per event, e.g. "Health down 6, now 18 of 30."
-- Illustrations need an accessibility label describing the scene (ask the image tool for alt text).
+- Plates need an accessibility label describing the scene (ask the image tool for alt text).
 - Support Dynamic Type up to the accessibility sizes; the feed must reflow, not truncate.
 
----
+## 14. Don'ts
 
-## 13. Don'ts
-
-- Don't put borders, dividers, outlines or shadows on anything.
-- Don't box, card or tint narration.
-- Don't turn game events into cards (except the two moments in section 7).
-- Don't use amber for decoration or for anything that doesn't need the player.
-- Don't convey meaning with color alone.
-- Don't add a tab bar or move in-game panels out of sheets.
-- Don't use emoji as icons.
-- Don't introduce new colors, radii or font sizes; extend this file first.
-
----
-
-## 14. SwiftUI token sketch
-
-A starting point for the token layer. Keep views referring to tokens only.
-
-```swift
-import SwiftUI
-
-extension Color {
-    init(hex: UInt32) {
-        self.init(.sRGB,
-                  red: Double((hex >> 16) & 0xFF) / 255,
-                  green: Double((hex >> 8) & 0xFF) / 255,
-                  blue: Double(hex & 0xFF) / 255)
-    }
-}
-
-enum EpochColor {
-    // Surfaces
-    static let scrim        = Color(hex: 0x07080A)
-    static let base         = Color(hex: 0x0E1014)
-    static let sheet        = Color(hex: 0x13161B)
-    static let card         = Color(hex: 0x15181D)
-    static let control      = Color(hex: 0x1A1D23)
-    static let player       = Color(hex: 0x1B1E24)
-    static let raised       = Color(hex: 0x20242C)
-    static let track        = Color(hex: 0x23272F)
-    static let selected     = Color(hex: 0x2C313B)
-    static let grabber      = Color(hex: 0x3A404C)
-    // Text
-    static let textPrimary   = Color(hex: 0xEDE7DB)
-    static let textSecondary = Color(hex: 0xCFC8BB)
-    static let textMuted     = Color(hex: 0x8E887D)
-    static let textFaint     = Color(hex: 0x6E6A62)
-    // Accent
-    static let amber         = Color(hex: 0xE5A85A)
-    static let amberLight    = Color(hex: 0xF2C287)
-    static let onAmber       = Color(hex: 0x1A1206)
-    static let amberWash     = Color(hex: 0x1E1A14)
-    static let amberTint     = Color(hex: 0x2A2116)
-    static let amberSelected = Color(hex: 0x3A2C17)
-    // Game meaning
-    static let gain          = Color(hex: 0x7CC4B4)
-    static let gainTint      = Color(hex: 0x1E2A28)
-    static let loss          = Color(hex: 0xE07A6E)
-    static let enemy         = Color(hex: 0xB9665C)
-    static let condition     = Color(hex: 0x9CC0E8)
-    static let conditionTint = Color(hex: 0x161D26)
-    static let gold          = Color(hex: 0xD9C38A)
-    static let entityLink    = Color(hex: 0x4F6E67)
-    static let entityText    = Color(hex: 0xF4E6CB)
-}
-
-enum EpochRadius {
-    static let sm: CGFloat = 10
-    static let md: CGFloat = 18
-    static let lg: CGFloat = 22
-    static let xl: CGFloat = 28
-}
-
-enum EpochSpace {
-    static let xxs: CGFloat = 4
-    static let xs: CGFloat = 8
-    static let sm: CGFloat = 12
-    static let md: CGFloat = 16
-    static let lg: CGFloat = 20
-    static let xl: CGFloat = 24
-    static let xxl: CGFloat = 32
-    static let xxxl: CGFloat = 40
-    static let narrationMargin: CGFloat = 22
-}
-
-enum EpochFont {
-    // SF Pro styles use system text styles so they scale with Dynamic Type
-    // (default sizes match the table: 34, 17, 15, 13, 12).
-    static let largeTitle  = Font.largeTitle.bold()
-    static let storyTitle  = Font.custom("Literata", size: 23, relativeTo: .title2).weight(.semibold)
-    static let itemTitle   = Font.custom("Literata", size: 19, relativeTo: .title3).weight(.semibold)
-    static let narration   = Font.custom("Literata", size: 18, relativeTo: .body)   // line spacing ≈ 12
-    static let description = Font.custom("Literata", size: 15, relativeTo: .subheadline)
-    static let caption     = Font.custom("Literata", size: 13, relativeTo: .footnote).italic()
-    static let headline    = Font.headline
-    static let uiBody      = Font.subheadline
-    static let eventLine   = Font.footnote.monospacedDigit()
-    static let eyebrow     = Font.caption.weight(.semibold)  // uppercase, tracking 0.72
-}
-```
+- Don't put narration, player turns or events in bubbles, cards or tinted panels.
+- Don't fill a surface with a meaning color.
+- Don't use quill for anything that isn't the reader or waiting on the reader.
+- Don't draw decorative rules or add drop shadows.
+- Don't add a tab bar. The Codex is a sheet so the reader never loses the page.
+- Don't set readable text lighter than `inkMuted`, or rely on color alone.
+- Don't introduce new colors, sizes or font styles; extend this file first.

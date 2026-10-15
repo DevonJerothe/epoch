@@ -26,7 +26,7 @@
 ## UI Design
 
 - Before building or changing UI, read [DESIGN.md](DESIGN.md) for the design rules and token definitions. It takes precedence over visual mockups.
-- For component appearance, consult the [Style guide](docs/design/Style%20guide.pdf); for narrator passages and tool-call events, consult [Story events tool call to UI](docs/design/Story%20events%20tool%20call%20to%20UI.pdf).
+- For component appearance, consult the [Paper direction design sheet](docs/design/Paper%20direction.webp). The older PDFs in `docs/design/` show the retired dark amber direction; do not follow them.
 - Use [ThemeManager.swift](epoch/Shared/Managers/ThemeManager.swift) through the SwiftUI environment for design tokens. Apply text styles with `.epochTypography(_:)` so fonts, line spacing, and tracking scale with Dynamic Type. Extend DESIGN.md before introducing new tokens.
 
 ## Errors and Logging

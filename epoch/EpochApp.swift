@@ -29,7 +29,7 @@ struct epochApp: App {
                     NavigationStack(path: $coordinator.path) {
                         Text("Stories View")
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(theme.colors.base)
+                            .background(theme.colors.paper)
                             .navigationTitle("Stories")
                             .navigationBarTitleDisplayMode(.large)
                             .toolbar {
@@ -40,6 +40,7 @@ struct epochApp: App {
                                     Button("New Story", systemImage: "plus") {
                                         coordinator.push(.newStory)
                                     }
+                                    .tint(theme.colors.quill)
                                 }
                             }
                             .navigationDestination(for: Coordinator.Destination.self) { destination in
@@ -52,12 +53,12 @@ struct epochApp: App {
             }
             .environment(theme)
             .preferredColorScheme(theme.colorScheme)
-            .tint(theme.colors.amber)
-            .foregroundStyle(theme.colors.textPrimary)
-            .epochTypography(.uiBody)
+            .tint(theme.colors.inkSoft)
+            .foregroundStyle(theme.colors.ink)
+            .epochTypography(.ui)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.colors.base)
-            .toolbarBackground(theme.colors.base, for: .navigationBar)
+            .background(theme.colors.paper)
+            .toolbarBackground(theme.colors.paper, for: .navigationBar)
         }
     }
 
@@ -67,20 +68,20 @@ struct epochApp: App {
         case .newStory:
             Text("New Story")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.colors.base)
+                .background(theme.colors.paper)
         case .settings:
             Text("Settings View")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.colors.base)
+                .background(theme.colors.paper)
                 .navigationTitle("Settings")
         case .storyView(let uUID):
             Text("story: \(uUID)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.colors.base)
+                .background(theme.colors.paper)
         case .storySettings(let uUID):
             Text("story settings: \(uUID)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.colors.base)
+                .background(theme.colors.paper)
         }
     }
 }

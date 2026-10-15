@@ -4,10 +4,8 @@
 <dict>
     <key>UIAppFonts</key>
     <array>
-        <string>Literata-Regular.ttf</string>
-        <string>Literata-Italic.ttf</string>
+        <string>Newsreader.ttf</string>
+        <string>Newsreader-Italic.ttf</string>
     </array>
-    <key>UIUserInterfaceStyle</key>
-    <string>Dark</string>
 </dict>
 </plist>
