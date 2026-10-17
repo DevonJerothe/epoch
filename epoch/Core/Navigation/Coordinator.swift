@@ -7,31 +7,31 @@
 
 import SwiftUI
 
+@MainActor
 @Observable
-class Coordinator {
-    enum Tab {
-        case stories
-        case settings
-    }
-    
+final class Coordinator {
     enum Destination: Hashable {
+        case newStory
         case storyView(UUID)
         case storySettings(UUID)
+        case settings
     }
-    
+
 //    enum SheetType: Identifiable {}
-    
-    var currentTab: Tab = .stories
-    
-    var storiesPath = NavigationPath()
-    var settingsPath = NavigationPath()
-    
-    private func getCurrentPath() -> NavigationPath {
-        switch currentTab {
-        case .stories:
-            return self.storiesPath
-        case .settings:
-            return self.settingsPath
-        }
+
+    /// Single stack rooted at Stories; secondary areas like Settings are pushed from the nav bar.
+    var path = NavigationPath()
+
+    func push(_ destination: Destination) {
+        path.append(destination)
+    }
+
+    func pop() {
+        guard !path.isEmpty else { return }
+        path.removeLast()
+    }
+
+    func popToRoot() {
+        path = NavigationPath()
     }
 }

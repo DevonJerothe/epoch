@@ -26,58 +26,62 @@ struct epochApp: App {
                         Button("Retry") { database.setup() }
                     }
                 } else {
-                    TabView(selection: $coordinator.currentTab) {
-                        NavigationStack(path: $coordinator.storiesPath) {
-                            Text("Stories View")
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(theme.colors.base)
-                                .navigationDestination(for: Coordinator.Destination.self) { destination in
-                                    destinationView(for: destination)
+                    NavigationStack(path: $coordinator.path) {
+                        Text("Stories View")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(theme.colors.paper)
+                            .navigationTitle("Stories")
+                            .navigationBarTitleDisplayMode(.large)
+                            .toolbar {
+                                ToolbarItemGroup(placement: .topBarTrailing) {
+                                    Button("Settings", systemImage: "gearshape") {
+                                        coordinator.push(.settings)
+                                    }
+                                    Button("New Story", systemImage: "plus") {
+                                        coordinator.push(.newStory)
+                                    }
+                                    .tint(theme.colors.quill)
                                 }
-                        }.tabItem {
-                            Image(systemName: "message")
-                            Text("Stories")
-                        }
-                        .tag(Coordinator.Tab.stories)
-
-                        // Settings
-                        NavigationStack(path: $coordinator.settingsPath) {
-                            Text("Settings View")
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(theme.colors.base)
-                                .navigationDestination(for: Coordinator.Destination.self) { destination in
-                                    destinationView(for: destination)
-                                }
-                        }.tabItem {
-                            Image(systemName: "gearshape")
-                            Text("Settings")
-                        }
+                            }
+                            .navigationDestination(for: Coordinator.Destination.self) { destination in
+                                destinationView(for: destination)
+                            }
                     }
+                    .environment(coordinator)
                     .environment(database)
                 }
             }
             .environment(theme)
             .preferredColorScheme(theme.colorScheme)
-            .tint(theme.colors.amber)
-            .foregroundStyle(theme.colors.textPrimary)
-            .epochTypography(.uiBody)
+            .tint(theme.colors.inkSoft)
+            .foregroundStyle(theme.colors.ink)
+            .epochTypography(.ui)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.colors.base)
-            .toolbarBackground(theme.colors.base, for: .navigationBar, .tabBar)
+            .background(theme.colors.paper)
+            .toolbarBackground(theme.colors.paper, for: .navigationBar)
         }
     }
 
     @ViewBuilder
     private func destinationView(for destination: Coordinator.Destination) -> some View {
         switch destination {
+        case .newStory:
+            Text("New Story")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.colors.paper)
+        case .settings:
+            Text("Settings View")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.colors.paper)
+                .navigationTitle("Settings")
         case .storyView(let uUID):
             Text("story: \(uUID)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.colors.base)
+                .background(theme.colors.paper)
         case .storySettings(let uUID):
             Text("story settings: \(uUID)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.colors.base)
+                .background(theme.colors.paper)
         }
     }
 }
