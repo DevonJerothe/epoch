@@ -1,0 +1,64 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Xcode — user-specific state
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+timeline.xctimeline
+playground.xcworkspace
+
+# Xcode — build output
+build/
+DerivedData/
+*.xcresult
+
+# Swift Package Manager
+.build/
+.swiftpm/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/configuration/
+# Package.resolved is committed so dependency versions are reproducible.
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+Carthage/Checkouts/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code injection / tooling
+iOSInjectionProject/
+*.profraw
+*.gcda
+*.gcno
+
+# Secrets & local config
+*.env
+.env*
+*.xcconfig.local
+Secrets.xcconfig
+GoogleService-Info.plist
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
