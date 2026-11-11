@@ -111,16 +111,67 @@ public struct LLMTool: Encodable, Equatable, Sendable {
     public let type = "function"
     public var name: String
     public var description: String
-    public var parameters: JSONValue
+    /// The JSON Schema sent to the provider. Assigning a raw value discards
+    /// `typedParameters`, so the tool then has only raw-schema guarantees.
+    public var parameters: JSONValue {
+        get { renderedParameters }
+        set {
+            renderedParameters = newValue
+            typedParameters = nil
+        }
+    }
     /// In strict schemas every property must be required and every object must
     /// specify additionalProperties: false. Optional values use a nullable type.
+    /// Typed parameters are re-checked against this value by `validate()`.
     public var strict: Bool
+    /// Set only for tools built from `LLMToolParameters`.
+    public private(set) var typedParameters: LLMToolParameters?
+    private var renderedParameters: JSONValue
 
+    /// Raw-schema escape hatch for features `LLMSchema` does not model. Only the
+    /// root shape is checked locally (see `validate()`).
     public init(name: String, description: String, parameters: JSONValue, strict: Bool = true) {
         self.name = name
         self.description = description
-        self.parameters = parameters
+        self.renderedParameters = parameters
         self.strict = strict
+    }
+
+    /// Throws `LLMToolSchemaError` when the schema is contradictory, e.g. an
+    /// omittable property in a strict tool.
+    public init(
+        name: String, description: String, parameters: LLMToolParameters, strict: Bool = true
+    ) throws {
+        self.name = name
+        self.description = description
+        self.renderedParameters = try parameters.jsonValue(strict: strict)
+        self.strict = strict
+        self.typedParameters = parameters
+    }
+
+    /// Local checks run before every request. Typed tools are fully re-checked
+    /// against the current `strict` value. Raw tools are only checked to have an
+    /// object root with `"type": "object"`; nested keywords, strict-mode rules,
+    /// and provider/model support are not validated for them.
+    public func validate() throws {
+        if let typedParameters {
+            _ = try typedParameters.jsonValue(strict: strict)
+        } else {
+            guard renderedParameters.object?["type"] == .string("object") else {
+                throw LLMToolSchemaError.invalidRawRoot(tool: name)
+            }
+        }
+    }
+
+    enum CodingKeys: String, CodingKey { case type, name, description, parameters, strict }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(type, forKey: .type)
+        try c.encode(name, forKey: .name)
+        try c.encode(description, forKey: .description)
+        try c.encode(renderedParameters, forKey: .parameters)
+        try c.encode(strict, forKey: .strict)
     }
 }
 

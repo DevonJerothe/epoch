@@ -106,6 +106,8 @@ public struct ResponsesService: EpochLLMService {
         guard !request.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw LLMError.invalidConfiguration("A model ID is required.")
         }
+        // Runs inside stream()'s task too, so both modes reject before network I/O.
+        for tool in request.tools ?? [] { try tool.validate() }
         var result = URLRequest(url: baseURL.appendingPathComponent("responses"))
         result.httpMethod = "POST"
         result.timeoutInterval = timeoutInterval

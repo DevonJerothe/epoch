@@ -63,23 +63,19 @@ The adapter uses [Replicate's official model prediction endpoint](https://replic
 
 ## RPG tools
 
-Use function definitions with JSON Schema. Definitions use the flattened Responses shape (`type`, `name`, `parameters`, `strict`), rather than a Chat Completions `function` wrapper.
+Describe tool parameters with `LLMToolParameters` and `LLMSchema`, which render JSON Schema for you. Definitions use the flattened Responses shape (`type`, `name`, `parameters`, `strict`), rather than a Chat Completions `function` wrapper.
 
 ```swift
-let rollDice = LLMTool(
+let rollDice = try LLMTool(
     name: "roll_dice",
     description: "Roll a die when the player attempts an uncertain action.",
-    parameters: .object([
-        "type": .string("object"),
-        "properties": .object([
-            "sides": .object(["type": .string("integer"), "enum": .array([.integer(20)])])
-        ]),
-        "required": .array([.string("sides")]),
-        "additionalProperties": .bool(false)
+    parameters: LLMToolParameters([
+        .required("sides", .integer("Number of faces on the die.", enum: [20])),
+        .required("reason", .string("The action being attempted.").nullable),
     ])
 )
 
-struct DiceArguments: Decodable { let sides: Int }
+struct DiceArguments: Decodable { let sides: Int; let reason: String? }
 struct DiceResult: Encodable { let roll: Int }
 
 var turn = LLMRequest(
@@ -116,7 +112,28 @@ if result.isComplete {
 
 The SDK describes tools and transports calls/results. Epoch owns execution, argument validation, game-state changes, duplicate-call tracking, and limits on tool rounds. Results correlate with `callID`, not the output item's `id`. Handle every call returned in a round before continuing. Function arguments remain a JSON string until decoded into an app type.
 
-Strict schemas are enabled by default. Every object must set `additionalProperties: false`, and every property must be required (use nullable types for optional values). Use `strict: false` explicitly for a non-strict schema. Model support for tools and sampling/reasoning options varies; omitted tuning fields use provider defaults.
+Model support for tools and sampling/reasoning options varies; omitted tuning fields use provider defaults.
+
+### Tool parameter schemas
+
+`LLMSchema` covers `.string`, `.integer`, `.number`, `.boolean`, `.array(of:)`, and nested `.object`, each with an optional description. Strings and integers accept `enum:` values. The parameter root is always an object; use `LLMToolParameters.empty` for zero-argument tools.
+
+Every rendered object lists its required properties and sets `additionalProperties: false`, recursively, including objects inside arrays. Strict mode is the default and requires every property to be present:
+
+- **Nullable** (`.required("reason", .string().nullable)`): the key is always sent, and its value may be `null`. This is how strict tools express an optional value. Decode it as a Swift optional.
+- **Omittable** (`.omittable("note", .string())`): the key may be absent from the arguments. Only non-strict tools (`strict: false`) allow this. In a strict tool it throws `LLMToolSchemaError.omittableInStrictMode` instead of being quietly made required.
+
+`try LLMTool(..., parameters: LLMToolParameters)` throws `LLMToolSchemaError` with a path such as `parameters.items[].name` for empty or duplicate property names, empty or duplicate enum values, and omittable properties in strict tools. `ResponsesService` calls `tool.validate()` before every `send` and `stream`, so changing `strict` afterwards is re-checked before any network I/O. Assigning `tool.parameters` directly replaces the typed schema with a raw one (`typedParameters` becomes `nil`).
+
+Raw JSON Schema remains available for features the typed model does not cover. Use `LLMTool(name:description:parameters: JSONValue)` for a whole schema, or `.raw(JSONValue)` for one property's schema:
+
+```swift
+let lookup = try LLMTool(name: "lookup", description: "Find a location.", parameters: LLMToolParameters([
+    .required("code", .raw(.object(["type": .string("string"), "pattern": .string("^[A-Z]{3}$")]))),
+]))
+```
+
+Raw schemas are only checked locally for an object root with `"type": "object"`. Nested keywords, strict-mode rules inside raw values, and spelling are your responsibility. Neither path is a full JSON Schema validator, and neither can guarantee that a provider or model accepts a schema. Decoding arguments and validating their game meaning remain the app's job.
 
 ## Streaming
 
@@ -153,7 +170,7 @@ Built-in hosted tools, model discovery, automatic tool execution, and automatic 
 
 ## Validation and API references
 
-From the project root, run `swift test --package-path packages/EpochLLM`. Tests use an ephemeral URLSession with fixture URLProtocol responses; no keys or paid API calls are needed. They cover both text endpoints, stateless request encoding, full history replay, typed tools, streamed UTF-8 and SSE framing, HTTP/model failures, truncation, provider selection, and custom adapters. Image tests cover the fixed FLUX Schnell request, prediction polling, URL and byte delivery, malformed outputs, download failures, cancellation, and deadlines during creation, polling, and downloading.
+From the project root, run `swift test --package-path packages/EpochLLM`. Tests use an ephemeral URLSession with fixture URLProtocol responses; no keys or paid API calls are needed. They cover both text endpoints, stateless request encoding, full history replay, typed tools and tool parameter schemas, streamed UTF-8 and SSE framing, HTTP/model failures, truncation, provider selection, and custom adapters. Image tests cover the fixed FLUX Schnell request, prediction polling, URL and byte delivery, malformed outputs, download failures, cancellation, and deadlines during creation, polling, and downloading.
 
 - [OpenAI Responses migration and stateless history](https://developers.openai.com/api/docs/guides/migrate-to-responses)
 - [OpenAI function calling and streaming](https://developers.openai.com/api/docs/guides/function-calling)
