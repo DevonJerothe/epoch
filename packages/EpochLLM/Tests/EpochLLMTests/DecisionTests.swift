@@ -185,6 +185,10 @@ private func request(model: String) -> DecisionRequest {
     #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"input_tokens":1e300,"output_tokens":1}}"#,
     #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"input_tokens":1,"output_tokens":1.5}}"#,
     #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":-2}}"#,
+    // Incomplete usage still validates the counts that are present.
+    #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"output_tokens":-1}}"#,
+    #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"input_tokens":1,"total_tokens":1e300}}"#,
+    #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"input_tokens_details":{"cached_tokens":1.5}}}"#,
 ])
 func malformedDecisionResponsesThrow(json: String) async throws {
     let session = fixtureSession(body: json)

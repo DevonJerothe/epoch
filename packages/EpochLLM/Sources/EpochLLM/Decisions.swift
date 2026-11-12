@@ -480,15 +480,18 @@ enum DecisionResponseParser {
     /// Usage is optional, but a token count that is present must be a
     /// non-negative whole number that fits in `Int`.
     private static func parseUsage(_ usage: [String: JSONValue]?) throws -> DecisionUsage? {
-        guard let usage, let input = try tokenCount(usage["input_tokens"], field: "input_tokens"),
-              let output = try tokenCount(usage["output_tokens"], field: "output_tokens") else { return nil }
+        guard let usage else { return nil }
+        // Validate every present count before deciding whether usage is complete.
+        let input = try tokenCount(usage["input_tokens"], field: "input_tokens")
+        let output = try tokenCount(usage["output_tokens"], field: "output_tokens")
+        let total = try tokenCount(usage["total_tokens"], field: "total_tokens")
+        let cached = try tokenCount(
+            usage["input_tokens_details"]?.object?["cached_tokens"], field: "cached_tokens"
+        )
+        guard let input, let output else { return nil }
         return DecisionUsage(
-            inputTokens: input, outputTokens: output,
-            totalTokens: try tokenCount(usage["total_tokens"], field: "total_tokens"),
-            cachedInputTokens: try tokenCount(
-                usage["input_tokens_details"]?.object?["cached_tokens"], field: "cached_tokens"
-            ),
-            cost: usage["cost"]?.double
+            inputTokens: input, outputTokens: output, totalTokens: total,
+            cachedInputTokens: cached, cost: usage["cost"]?.double
         )
     }
 
