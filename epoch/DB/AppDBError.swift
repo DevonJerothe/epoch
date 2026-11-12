@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated enum AppDBError: LocalizedError {
+nonisolated enum AppDBError: LocalizedError, Equatable {
     case unavailable
     case startupFailed(String)
     case invalidRelationship(String)
