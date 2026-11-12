@@ -16,16 +16,24 @@ struct epochApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if let error = database.startUpError {
+            // A ZStack, not a Group: a Group would re-run the startup task each time the branch changes.
+            ZStack {
+                switch database.state {
+                case .loading:
+                    ProgressView()
+                        .tint(theme.colors.inkSoft)
+                        .accessibilityLabel("Opening your stories")
+                case .failed(let error):
                     ContentUnavailableView {
                         Label("Database Unavailable", systemImage: "externaldrive.badge.exclamationmark")
                     } description: {
                         Text(error.localizedDescription)
                     } actions: {
-                        Button("Retry") { database.setup() }
+                        Button("Retry") {
+                            Task { await database.start() }
+                        }
                     }
-                } else {
+                case .ready:
                     NavigationStack(path: $coordinator.path) {
                         Text("Stories View")
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -51,6 +59,8 @@ struct epochApp: App {
                     .environment(database)
                 }
             }
+            // Database-dependent content stays gated until startup finishes off the main actor.
+            .task { await database.start() }
             .environment(theme)
             .preferredColorScheme(theme.colorScheme)
             .tint(theme.colors.inkSoft)

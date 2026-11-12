@@ -1,8 +1,20 @@
 # Epoch database
 
-Epoch stores its local story worlds in `Documents/epoch.sqlite` using GRDB 7.11.1, a serialized `DatabaseQueue`, foreign-key enforcement, and WAL journaling. `DBManager.shared` opens and migrates the database at app startup. Startup failure displays a retry screen, and repository failures propagate to their caller. `DBManager(path: ":memory:")` creates an isolated database for tests and previews.
+Epoch stores its local story worlds in `Documents/epoch.sqlite` using GRDB 7.11.1, a serialized `DatabaseQueue`, foreign-key enforcement, and WAL journaling. Repository failures propagate to their caller. `try await DBManager(path: ":memory:")` creates an isolated, already-started database for tests and previews.
 
 `DatabaseMigrations` registers `v1_story_world`, calling record-owned declarative migration functions in dependency order. It creates the complete schema, including player/NPC inventory ownership, NPC attributes, and status effects. Table columns, constraints, relationships, and indexes are defined alongside their record. During development, builds use fresh databases; the initial migration does not upgrade earlier development schemas. Add new named migrations for future schema changes; do not edit a migration once released. GRDB also maintains its own migration bookkeeping table.
+
+## Startup lifecycle
+
+`DBManager` is the `@MainActor`, observable owner of startup state; it does no database work when constructed. `AppDatabase` is the Sendable handle that privately owns the `DatabaseQueue`. Its `@concurrent` `open` functions create the documents directory, open and configure the queue, and run migrations off the main actor.
+
+`DBManager.state` is one of:
+
+- `.loading`: the initial state and the state during an attempt. The app shows a progress indicator and `read`/`write` throw `AppDBError.unavailable`.
+- `.ready`: the database is open and migrated. Database-dependent content is only shown in this state.
+- `.failed(AppDBError)`: the error has been reported to `ErrorManager` and the app shows a retry screen. `read`/`write` throw the startup error.
+
+`await DBManager.shared.start()` runs startup; the app root calls it from `.task`, and the retry button calls it again. It returns immediately once ready, and overlapping calls join the attempt in flight, so the database is never opened twice. The attempt is not cancelled when a calling view goes away. Tests inject `DBManager(open:)` to delay or fail startup.
 
 ## Tables
 
@@ -42,17 +54,23 @@ Models are UI/domain values. Their `record` property converts to a database reco
 ```swift
 let story = StoryModel(title: "The Forgotten Kingdom")
 let stories = StoryRepository()
-try stories.save(story)
+try await stories.save(story)
 
 let player = PlayerCharacterModel(storyId: story.id, name: "Ari")
 let players = RecordRepository<PlayerCharacterRecord>()
-let storedPlayer = try players.save(player.record)
+let storedPlayer = try await players.save(player.record)
 let loadedPlayer = PlayerCharacterModel(record: storedPlayer)
 
-let inventory = try DBManager.shared.read { db in
+let inventory = try await DBManager.shared.read { db in
     try storedPlayer.request(for: PlayerCharacterRecord.inventory).fetchAll(db)
 }
 ```
+
+`DBManager.read`/`write` and every repository method are `async throws`: the caller suspends while the closure runs on the database queue through GRDB's async APIs, so main-actor callers never block on SQLite. Closures are `@Sendable` and must return Sendable values (models, records, counts); keep `Database`, `Row`, and cursors inside the closure. Repositories are nonisolated Sendable values usable from any actor; the no-argument initializer uses `DBManager.shared` and is main-actor only, so pass `database:` elsewhere. Catch errors at the app boundary, report them to `ErrorManager`, and assign results to UI state on the main actor.
+
+Cancellation: GRDB's async `read`/`write` throw `CancellationError` when the calling task is cancelled, and a cancelled write rolls back. A save started from a view's `.task` is therefore dropped if the view disappears. Start saves that must complete from an unstructured task owned by a view model or manager, and do not report `CancellationError` to `ErrorManager` as an operational failure.
+
+`AppDatabase.open` traps in debug and test builds if it is ever called on the main thread.
 
 `RecordRepository<Record>` provides get-all, UUID lookup, save, and delete for every table. Use `DBManager.write` for operations that change several records together, such as transferring items or applying a quest reward; GRDB rolls back the transaction on failure.
 
@@ -73,7 +91,7 @@ let soaked = StatusEffectModel(
     removalConditions: ["drying_off"],
     turnsRemaining: 3
 )
-try RecordRepository<StatusEffectRecord>().save(soaked.record)
+try await RecordRepository<StatusEffectRecord>().save(soaked.record)
 
 let goldenFingers = StatusEffectModel(
     storyId: story.id,

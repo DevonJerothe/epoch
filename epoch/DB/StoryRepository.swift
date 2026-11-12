@@ -1,24 +1,29 @@
 import Foundation
 import GRDB
 
-@MainActor
-struct StoryRepository {
+/// Calls suspend the caller while the work runs on the database queue.
+nonisolated struct StoryRepository: Sendable {
     let database: DBManager
 
-    init(database: DBManager? = nil) {
-        self.database = database ?? .shared
+    init(database: DBManager) {
+        self.database = database
     }
 
-    func getAll() throws -> [StoryModel] {
-        try database.read { db in
+    @MainActor
+    init() {
+        self.init(database: .shared)
+    }
+
+    func getAll() async throws -> [StoryModel] {
+        try await database.read { db in
             try StoryRecord.order(Column("updatedAt").desc, Column("id")).fetchAll(db)
                 .map { StoryModel(record: $0) }
         }
     }
 
     /// Loads messages and their choices in one consistent database snapshot.
-    func get(id: UUID) throws -> StoryModel? {
-        try database.read { db in
+    func get(id: UUID) async throws -> StoryModel? {
+        try await database.read { db in
             guard let record = try StoryRecord.filter(Column("id") == id.uuidString).fetchOne(db) else {
                 return nil
             }
@@ -39,8 +44,8 @@ struct StoryRepository {
 
     /// Upserts the supplied story, messages, and actions atomically. Omitting a child does not delete it.
     /// Use the typed record repository for explicit child deletions.
-    func save(_ story: StoryModel) throws {
-        try database.write { db in
+    func save(_ story: StoryModel) async throws {
+        try await database.write { db in
             var record = story.record
             record.updatedAt = .now
             try record.save(db)
@@ -64,7 +69,7 @@ struct StoryRepository {
     }
 
     @discardableResult
-    func delete(id: UUID) throws -> Bool {
-        try RecordRepository<StoryRecord>(database: database).delete(id: id)
+    func delete(id: UUID) async throws -> Bool {
+        try await RecordRepository<StoryRecord>(database: database).delete(id: id)
     }
 }
