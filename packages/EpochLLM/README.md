@@ -1,6 +1,6 @@
 # EpochLLM
 
-Epoch's Swift package for text generation, RPG function calling, and image generation. `EpochAIManager` selects between text services accepting `LLMRequest` and returning `LLMResponse`, and independently uses Replicate for images. No dependency on SwiftLLMSDK is required.
+Epoch's Swift package for text generation, RPG function calling, decisions, and image generation. `EpochAIManager` selects between text services accepting `LLMRequest` and returning `LLMResponse`, and independently uses Replicate for images. No dependency on SwiftLLMSDK is required.
 
 OpenAI uses `https://api.openai.com/v1/responses`; OpenRouter uses `https://openrouter.ai/api/v1/responses`. Both use the same Responses adapter for ordinary and streaming requests. The package requires Swift 6.4, iOS 17+ or macOS 14+.
 
@@ -154,6 +154,97 @@ Text, refusal, reasoning, output-item, and tool-argument events support live dis
 
 Cancel the task consuming the stream to cancel its network work. Each stream owns its request and finishes after the terminal response. Network failures, failed model responses, malformed known events, and streams ending without a terminal response throw. An `incomplete` response is returned with `incompleteDetails` so the app can handle output limits without losing partial narration. Unknown stream event types are ignored.
 
+## Decisions
+
+Decision APIs answer classification and scoring questions about a shared state, returning probabilities instead of generated text. `DecisionService` supports three providers with one Swift request/response model:
+
+| Option | Factory | Endpoint | Example model | Status |
+| --- | --- | --- | --- | --- |
+| OpenAI Decisions | `DecisionService.openAI(apiKey:)` | `POST https://api.openai.com/v1/decisions` | `gpt-6-luna` | Public beta |
+| OpenRouter Decisions | `DecisionService.openRouter(apiKey:appURL:appName:)` | `POST https://openrouter.ai/api/alpha/decisions` | `typesafe/jev-1.13` | Alpha |
+| Jev (TypeSafe direct) | `DecisionService.jev(apiKey:)` | `POST https://api.typesafe.ai/v1/systemone` | `jev-latest` | Direct API |
+
+Each question has a unique `name`; answers are keyed by it. Three question kinds map to each provider's wire format:
+
+- `.predicate(name, instructions, whenTrue:whenFalse:)` → OpenAI `predicate` / TypeSafe `noul`. Returns the probability the statement is true. TypeSafe receives `whenTrue`/`whenFalse` as `criteria`; OpenAI has no criteria field, so they are appended to its instructions.
+- `.choice(name, instructions, options:)` → 2–255 unique options, each with an optional description. Returns the chosen option, its confidence, and the probability of every option.
+- `.score(name, instructions, levels:)` → 2–10 ordered levels, lowest first. Returns the expected level index (fractional), confidence, and each level's probability as a legend in request order.
+
+`DecisionState` is `.text(String)` or `.json(JSONValue)`; `try .encoding(gameSnapshot)` converts any `Encodable`. OpenRouter and Jev receive JSON state as-is; OpenAI receives it as compact JSON text.
+
+### OpenAI
+
+```swift
+let openAI = DecisionService.openAI(apiKey: openAIKey)
+let decision = try await openAI.decide(DecisionRequest(
+    model: "gpt-6-luna",
+    state: .text("The player draws a dagger and steps toward the innkeeper."),
+    questions: [
+        .predicate("is_hostile", "Is the player acting with hostile intent?"),
+        .choice("intent", "What is the player trying to do?", options: [
+            "fight", DecisionOption("intimidate", description: "Threaten without attacking"), "trade",
+        ]),
+        .score("tension", "How tense is the scene?", levels: ["calm", "uneasy", "violent"]),
+    ]
+))
+if let hostile = decision["is_hostile"]?.probability, hostile > 0.8 { /* start combat */ }
+```
+
+### OpenRouter
+
+```swift
+let openRouter = DecisionService.openRouter(apiKey: openRouterKey, appName: "Epoch")
+let routed = try await openRouter.decide(DecisionRequest(
+    model: "typesafe/jev-1.13",
+    state: try .encoding(sceneSnapshot), // any Encodable game state
+    questions: [.predicate("is_bug", "Is this a bug report?", whenTrue: "Something is broken", whenFalse: "A question or request")]
+))
+print(routed.id ?? "", routed.provider ?? "", routed.usage?.cost ?? 0)
+```
+
+OpenRouter adds `id`, `provider`, and `usage.cost`, which `DecisionResponse` exposes. It is an alpha route; its shape may change.
+
+### Jev (TypeSafe)
+
+```swift
+let jev = DecisionService.jev(apiKey: typeSafeKey)
+let answer = try await jev.decide(DecisionRequest(
+    model: "jev-latest",
+    state: .text("I was charged twice for my subscription."),
+    questions: [.choice("department", "Which team should handle this?", options: ["billing", "technical", "sales"])]
+))
+switch answer["department"] {
+case .choice(let result)?: print(result.choice, result.confidence ?? 0, result.probabilities)
+case .refusal?: print("Declined")
+default: break
+}
+print(answer.model) // The resolved version, e.g. jev-1.13.0, can differ from the alias.
+```
+
+### Selecting a provider and handling errors
+
+```swift
+let manager = EpochAIManager(service: ResponsesService.openAI(apiKey: openAIKey), decisionService: DecisionService.jev(apiKey: typeSafeKey))
+await manager.registerDecisionService(DecisionService.openRouter(apiKey: openRouterKey))
+try await manager.selectDecisionService(.openRouter)          // affects future decide() calls
+let result = try await manager.decide(request)                // uses OpenRouter
+let direct = try await manager.decide(jevRequest, using: .jev) // per-request override
+
+do {
+    _ = try await manager.decide(request)
+} catch let error as LLMError where error.isRetryable {
+    // 408, 429, 5xx, 524, 529: back off (honor error's retryAfter when present) and retry.
+} catch let error as LLMError {
+    // Local validation (.invalidConfiguration), malformed answers (.invalidResponse), or a non-retryable .http.
+}
+```
+
+Decision selection is independent of the text service. Model IDs belong to the chosen provider and are never translated. `DecisionResponse` contains `answers`, the resolved `model`, `usage` (input/output tokens, plus `totalTokens`, `cachedInputTokens`, and `cost` where reported), and `raw` for any unmodeled field such as OpenRouter cost details.
+
+Any question can return `.refusal` while the others still answer. Requests are validated locally before network I/O (model, unique names, option/level counts, OpenAI's 400-question limit). A response missing an answer, returning the wrong answer type, choosing an unrequested option, or giving a probability outside 0...1 throws `LLMError.invalidResponse`. HTTP errors become `LLMError.http`, with the message from OpenAI/OpenRouter `error` bodies or TypeSafe `detail` bodies (422 validation errors read as `body.state: Field required`), plus `Retry-After`. The SDK never retries; TypeSafe recommends exponential backoff for 429 and 529.
+
+Not supported yet: image inputs (OpenAI base64 data URLs, TypeSafe/OpenRouter `assets`), TypeSafe `box` questions, OpenRouter provider routing preferences, and OpenAI prompt caching options. Recheck the beta/alpha contracts before relying on them in production.
+
 ## Stateless history and errors
 
 `store: false` is enforced for both providers, in both modes. There is no `previous_response_id` or server-side conversation API. Requests include `reasoning.encrypted_content`, and `LLMItem` retains full output JSON for replay. `request.append(response)` adds those items in order. The SDK keeps no conversation state or persistent credential storage.
@@ -170,10 +261,13 @@ Built-in hosted tools, model discovery, automatic tool execution, and automatic 
 
 ## Validation and API references
 
-From the project root, run `swift test --package-path packages/EpochLLM`. Tests use an ephemeral URLSession with fixture URLProtocol responses; no keys or paid API calls are needed. They cover both text endpoints, stateless request encoding, full history replay, typed tools and tool parameter schemas, streamed UTF-8 and SSE framing, HTTP/model failures, truncation, provider selection, and custom adapters. Image tests cover the fixed FLUX Schnell request, prediction polling, URL and byte delivery, malformed outputs, download failures, cancellation, and deadlines during creation, polling, and downloading.
+From the project root, run `swift test --package-path packages/EpochLLM`. Tests use an ephemeral URLSession with fixture URLProtocol responses; no keys or paid API calls are needed. They cover both text endpoints, all three decision providers' wire formats, answer parsing, and error normalization, stateless request encoding, full history replay, typed tools and tool parameter schemas, streamed UTF-8 and SSE framing, HTTP/model failures, truncation, provider selection, and custom adapters. Image tests cover the fixed FLUX Schnell request, prediction polling, URL and byte delivery, malformed outputs, download failures, cancellation, and deadlines during creation, polling, and downloading.
 
 - [OpenAI Responses migration and stateless history](https://developers.openai.com/api/docs/guides/migrate-to-responses)
 - [OpenAI function calling and streaming](https://developers.openai.com/api/docs/guides/function-calling)
 - [OpenRouter Responses API reference](https://openrouter.ai/docs/api/api-reference/responses/create-responses)
+- [OpenAI Create a decision](https://developers.openai.com/api/reference/resources/decisions/methods/create)
+- [OpenRouter Submit a Decisions request](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-request)
+- [TypeSafe System One HTTP API](https://docs.typesafe.ai/api)
 - [Replicate FLUX Schnell schema](https://replicate.com/black-forest-labs/flux-schnell/api/schema)
 - [Replicate predictions and polling](https://replicate.com/docs/topics/predictions/create-a-prediction)

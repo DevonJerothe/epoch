@@ -6,6 +6,8 @@ public struct LLMServiceID: RawRepresentable, Hashable, Codable, Sendable {
     public init(rawValue: String) { self.rawValue = rawValue }
     public static let openAI = Self(rawValue: "openai")
     public static let openRouter = Self(rawValue: "openrouter")
+    /// TypeSafe's direct Jev API (decisions only).
+    public static let jev = Self(rawValue: "jev")
 }
 
 /// A provider translates Epoch's shared models to its transport format.
@@ -21,11 +23,41 @@ public actor EpochAIManager {
     private var services: [LLMServiceID: any EpochLLMService]
     public private(set) var selectedService: LLMServiceID
     private var imageService: ReplicateImageService?
+    private var decisionServices: [LLMServiceID: any EpochDecisionService] = [:]
+    /// Selected independently of the text service; the first registered decision
+    /// service is selected until `selectDecisionService(_:)` is called.
+    public private(set) var selectedDecisionService: LLMServiceID?
 
-    public init(service: any EpochLLMService, imageService: ReplicateImageService? = nil) {
+    public init(
+        service: any EpochLLMService, imageService: ReplicateImageService? = nil,
+        decisionService: (any EpochDecisionService)? = nil
+    ) {
         services = [service.id: service]
         selectedService = service.id
         self.imageService = imageService
+        if let decisionService {
+            decisionServices[decisionService.id] = decisionService
+            selectedDecisionService = decisionService.id
+        }
+    }
+
+    public func registerDecisionService(_ service: any EpochDecisionService) {
+        decisionServices[service.id] = service
+        if selectedDecisionService == nil { selectedDecisionService = service.id }
+    }
+
+    public func selectDecisionService(_ id: LLMServiceID) throws {
+        guard decisionServices[id] != nil else { throw LLMError.unregisteredService(id) }
+        selectedDecisionService = id
+    }
+
+    /// Asks the selected (or given) decision service. Model IDs belong to that provider.
+    public func decide(_ request: DecisionRequest, using id: LLMServiceID? = nil) async throws -> DecisionResponse {
+        guard let id = id ?? selectedDecisionService else {
+            throw LLMError.invalidConfiguration("Register a decision service before requesting decisions.")
+        }
+        guard let provider = decisionServices[id] else { throw LLMError.unregisteredService(id) }
+        return try await provider.decide(request)
     }
 
     public func configureImageGeneration(_ service: ReplicateImageService) {
@@ -82,5 +114,13 @@ public enum LLMError: Error, LocalizedError, Sendable {
         case .responseFailed(let message, _): message
         case .interruptedStream: "The stream ended without a final response."
         }
+    }
+
+    /// True for rate limits, timeouts, and transient server/overload statuses
+    /// (e.g. 429, 529). The SDK never retries; callers choose a backoff policy
+    /// and should honor `retryAfter` when present.
+    public var isRetryable: Bool {
+        guard case .http(let status, _, _, _) = self else { return false }
+        return [408, 429, 500, 502, 503, 504, 524, 529].contains(status)
     }
 }
