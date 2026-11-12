@@ -179,6 +179,12 @@ private func request(model: String) -> DecisionRequest {
     #"{"model":"m","answers":{"hostile":{"type":"noul","noul":1.5},"intent":{"type":"refusal"},"tension":{"type":"refusal"}}}"#,
     // Score beyond the last level.
     #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"score","score":3}}}"#,
+    // Body that is not JSON at all.
+    "<html>Bad gateway</html>",
+    // Token counts that cannot be represented as Int, or are fractional or negative.
+    #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"input_tokens":1e300,"output_tokens":1}}"#,
+    #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"input_tokens":1,"output_tokens":1.5}}"#,
+    #"{"model":"m","answers":{"hostile":{"type":"refusal"},"intent":{"type":"refusal"},"tension":{"type":"refusal"}},"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":-2}}"#,
 ])
 func malformedDecisionResponsesThrow(json: String) async throws {
     let session = fixtureSession(body: json)
@@ -186,6 +192,14 @@ func malformedDecisionResponsesThrow(json: String) async throws {
     await #expect(throws: LLMError.self) {
         _ = try await DecisionService.jev(apiKey: "k", session: session).decide(request(model: "jev-latest"))
     }
+}
+
+@Test func openAIScoreIgnoresUnrepresentableFallbackValue() async throws {
+    let json = #"{"model":"m","answers":[{"type":"refusal"},{"type":"refusal"},{"type":"score","score":1,"probabilities":[{"label":"unknown","value":1e300,"probability":0.5},{"label":"other","value":1.5,"probability":0.2},{"label":"renamed","value":2,"probability":0.3}]}]}"#
+    let session = fixtureSession(body: json)
+    defer { session.invalidateAndCancel() }
+    let response = try await DecisionService.openAI(apiKey: "k", session: session).decide(request(model: "gpt-6-luna"))
+    #expect(response["tension"]?.score?.levels.map(\.probability) == [nil, nil, 0.3])
 }
 
 @Test func openAIAnswerNameMismatchThrows() async throws {

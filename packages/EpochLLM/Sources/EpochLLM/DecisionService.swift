@@ -9,7 +9,8 @@ public protocol EpochDecisionService: Sendable {
 
 /// One HTTP adapter for OpenAI Decisions, OpenRouter Decisions, and TypeSafe's
 /// Jev API. Requests are never retried automatically; check
-/// `LLMError.isRetryable` and apply your own backoff.
+/// `LLMError.isRetryable` and apply your own backoff. Transport failures keep
+/// their `URLError` type, so a client-side timeout is `URLError.timedOut`.
 public struct DecisionService: EpochDecisionService {
     public let id: LLMServiceID
     public let endpoint: URL

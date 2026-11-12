@@ -360,7 +360,9 @@ extension DecisionQuestion {
 
 enum DecisionResponseParser {
     static func parse(_ data: Data, for request: DecisionRequest, format: DecisionWireFormat) throws -> DecisionResponse {
-        let raw = try JSONDecoder().decode(JSONValue.self, from: data)
+        guard let raw = try? JSONDecoder().decode(JSONValue.self, from: data) else {
+            throw LLMError.invalidResponse("The decision response is not valid JSON.")
+        }
         guard let root = raw.object, let model = root["model"]?.string else {
             throw LLMError.invalidResponse("The decision response is missing its model.")
         }
@@ -393,7 +395,7 @@ enum DecisionResponseParser {
         }
         return DecisionResponse(
             id: root["id"]?.string, model: model, provider: root["provider"]?.string,
-            answers: answers, usage: parseUsage(root["usage"]?.object), raw: raw
+            answers: answers, usage: try parseUsage(root["usage"]?.object), raw: raw
         )
     }
 
@@ -438,7 +440,7 @@ enum DecisionResponseParser {
                     guard let fields = entry.object else { continue }
                     let index = fields["label"]?.string.flatMap { label in
                         levels.firstIndex { $0.label == label }
-                    } ?? fields["value"]?.double.map { Int($0) }
+                    } ?? fields["value"]?.exactInt
                     if let index, levels.indices.contains(index) {
                         byIndex[index] = try probability(fields["probability"], name: name)
                     }
@@ -475,15 +477,27 @@ enum DecisionResponseParser {
         return try probability(value, name: name)
     }
 
-    private static func parseUsage(_ usage: [String: JSONValue]?) -> DecisionUsage? {
-        guard let usage, let input = usage["input_tokens"]?.double,
-              let output = usage["output_tokens"]?.double else { return nil }
+    /// Usage is optional, but a token count that is present must be a
+    /// non-negative whole number that fits in `Int`.
+    private static func parseUsage(_ usage: [String: JSONValue]?) throws -> DecisionUsage? {
+        guard let usage, let input = try tokenCount(usage["input_tokens"], field: "input_tokens"),
+              let output = try tokenCount(usage["output_tokens"], field: "output_tokens") else { return nil }
         return DecisionUsage(
-            inputTokens: Int(input), outputTokens: Int(output),
-            totalTokens: usage["total_tokens"]?.double.map { Int($0) },
-            cachedInputTokens: usage["input_tokens_details"]?.object?["cached_tokens"]?.double.map { Int($0) },
+            inputTokens: input, outputTokens: output,
+            totalTokens: try tokenCount(usage["total_tokens"], field: "total_tokens"),
+            cachedInputTokens: try tokenCount(
+                usage["input_tokens_details"]?.object?["cached_tokens"], field: "cached_tokens"
+            ),
             cost: usage["cost"]?.double
         )
+    }
+
+    private static func tokenCount(_ value: JSONValue?, field: String) throws -> Int? {
+        guard let value, value != .null else { return nil }
+        guard let count = value.exactInt, count >= 0 else {
+            throw LLMError.invalidResponse("The decision response has an invalid \(field) count.")
+        }
+        return count
     }
 }
 
@@ -492,6 +506,16 @@ private extension JSONValue {
         switch self {
         case .integer(let value): Double(value)
         case .number(let value): value
+        default: nil
+        }
+    }
+
+    /// Nil unless the value is a whole number representable as `Int`, so
+    /// values like 1e300 or 1.5 never reach a trapping conversion.
+    var exactInt: Int? {
+        switch self {
+        case .integer(let value): value
+        case .number(let value): Int(exactly: value)
         default: nil
         }
     }

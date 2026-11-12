@@ -234,6 +234,8 @@ do {
     _ = try await manager.decide(request)
 } catch let error as LLMError where error.isRetryable {
     // 408, 429, 5xx, 524, 529: back off (honor error's retryAfter when present) and retry.
+} catch let error as URLError where error.code == .timedOut {
+    // The client-side timeoutInterval elapsed: back off and retry like a 408.
 } catch let error as LLMError {
     // Local validation (.invalidConfiguration), malformed answers (.invalidResponse), or a non-retryable .http.
 }
@@ -241,7 +243,7 @@ do {
 
 Decision selection is independent of the text service. Model IDs belong to the chosen provider and are never translated. `DecisionResponse` contains `answers`, the resolved `model`, `usage` (input/output tokens, plus `totalTokens`, `cachedInputTokens`, and `cost` where reported), and `raw` for any unmodeled field such as OpenRouter cost details.
 
-Any question can return `.refusal` while the others still answer. Requests are validated locally before network I/O (model, unique names, option/level counts, OpenAI's 400-question limit). A response missing an answer, returning the wrong answer type, choosing an unrequested option, or giving a probability outside 0...1 throws `LLMError.invalidResponse`. HTTP errors become `LLMError.http`, with the message from OpenAI/OpenRouter `error` bodies or TypeSafe `detail` bodies (422 validation errors read as `body.state: Field required`), plus `Retry-After`. The SDK never retries; TypeSafe recommends exponential backoff for 429 and 529.
+Any question can return `.refusal` while the others still answer. Requests are validated locally before network I/O (model, unique names, option/level counts, OpenAI's 400-question limit). A response missing an answer, returning the wrong answer type, choosing an unrequested option, or giving a probability outside 0...1 throws `LLMError.invalidResponse`, as does a body that is not valid JSON or a token count that is not a non-negative whole number. HTTP errors become `LLMError.http`, with the message from OpenAI/OpenRouter `error` bodies or TypeSafe `detail` bodies (422 validation errors read as `body.state: Field required`), plus `Retry-After`. Transport failures keep their `URLError` type, so a client-side timeout is `URLError(.timedOut)` rather than an `LLMError`. The SDK never retries; TypeSafe recommends exponential backoff for 429 and 529.
 
 Not supported yet: image inputs (OpenAI base64 data URLs, TypeSafe/OpenRouter `assets`), TypeSafe `box` questions, OpenRouter provider routing preferences, and OpenAI prompt caching options. Recheck the beta/alpha contracts before relying on them in production.
 
