@@ -83,11 +83,13 @@ public struct ModelCatalogService: EpochModelCatalog {
     public static let openAIDecisionModelPrefixes = ["gpt-6-luna"]
 
     /// ID fragments of OpenAI models that cannot narrate: embeddings, audio, images, video,
-    /// and moderation. This is a naming heuristic, because the models endpoint reports no
+    /// moderation, and Chat Completions search models. This is a naming heuristic, because the models endpoint reports no
     /// capabilities; a text model whose ID contains one of these would be hidden too.
     public static let openAINonTextModelMarkers = [
         "embedding", "audio", "tts", "whisper", "transcribe", "realtime",
         "image", "dall-e", "sora", "moderation",
+        // Search models belong to the Chat Completions search path, not the Responses route.
+        "search-api", "search-preview",
     ]
 
     static func isOpenAITextModel(_ id: String) -> Bool {
@@ -197,6 +199,7 @@ public struct ModelCatalogService: EpochModelCatalog {
         case .text:
             // Epoch narrates through the Responses route.
             query.append(URLQueryItem(name: "endpoints", value: "/api/v1/responses"))
+            query.append(URLQueryItem(name: "output_modalities", value: "text"))
         case .decisions:
             query.append(URLQueryItem(name: "endpoints", value: "/api/alpha/decisions"))
             // The endpoint lists only text-output models unless asked otherwise.

@@ -36,6 +36,32 @@ struct LoggingTests {
         }
     }
 
+    @Test func redactsWholeAuthorizationValues() {
+        let redactor = LogRedactor()
+        #expect(redactor.redact("Authorization: Basic dXNlcjpwYXNz")
+            == "Authorization: Basic \(LogRedactor.placeholder)")
+        #expect(redactor.redact(#"{"authorization":"Bearer abc.def-123"}"#)
+            == #"{"authorization":"Bearer \#(LogRedactor.placeholder)"}"#)
+        #expect(!redactor.redact("authorization=opaqueCredential42").contains("opaqueCredential42"))
+        // The word alone is not a credential.
+        #expect(redactor.redact("a basic model, with authorization pending") == "a basic model, with authorization pending")
+    }
+
+    @Test func hidesValuesUnderCredentialFieldNames() {
+        let sink = RecordingSink()
+        LoggingManager(sinks: [sink]).info("request", metadata: [
+            "api_key": "vendorCredential123", "Authorization": "opaque", "access-token": "abc",
+            "clientSecret": "s3", "input_tokens": "42", "credential": "openai", "provider": "openrouter",
+        ])
+        let metadata = sink.entries[0].metadata
+        for name in ["api_key", "Authorization", "access-token", "clientSecret"] {
+            #expect(metadata[name] == LogRedactor.placeholder, "\(name)")
+        }
+        #expect(metadata["input_tokens"] == "42")
+        #expect(metadata["credential"] == "openai")
+        #expect(metadata["provider"] == "openrouter")
+    }
+
     @Test func redactsRegisteredSecretsOfAnyShape() {
         let redactor = LogRedactor()
         redactor.register("  unusual/shape+value==  ")
@@ -550,6 +576,23 @@ struct ModelCatalogTests {
         #expect(noKey.state == .failed(try #require(
             ErrorDescription.describe(AIConfigurationError.missingCredential(.openAI))
         )))
+    }
+
+    @Test func pickerFailureTextIsRedacted() async throws {
+        let logger = LoggingManager()
+        let key = "sk-proj-abcdefgh12345678"
+        let echoing = StubCatalog(failure: LLMError.http(status: 402, message: "no credit for \(key)", code: nil, retryAfter: nil))
+        let picker = ModelPickerViewModel(
+            role: .narrator, configuration: try makeManager(echoing, keys: [.openAI: "openai-key-12345"]),
+            errors: ErrorManager(logger: logger)
+        )
+        await picker.load()
+        guard case .failed(let failure) = picker.state else {
+            Issue.record("Expected a failure state")
+            return
+        }
+        #expect(!failure.message.contains(key))
+        #expect(failure.message.contains(LogRedactor.placeholder))
     }
 
     @Test func rowsShowOnlyWhatTheProviderReports() {

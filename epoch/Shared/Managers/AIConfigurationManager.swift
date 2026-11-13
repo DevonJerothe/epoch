@@ -230,6 +230,8 @@ final class AIConfigurationManager {
     @ObservationIgnored private let validateKey: KeyValidator
     /// Model lists already fetched this launch, keyed by role and provider.
     @ObservationIgnored private var modelLists: [String: [LLMModelInfo]] = [:]
+    /// Bumped whenever a key is saved or removed, so a list fetched with the old key is dropped.
+    @ObservationIgnored private var credentialRevision = 0
     @ObservationIgnored private var resolved: Resolved?
     /// Bumped on every change so a build that was in flight is not cached.
     @ObservationIgnored private var generation = 0
@@ -374,14 +376,20 @@ final class AIConfigurationManager {
             }
         }
         if !refresh, let cached = modelLists[cacheKey] { return cached }
-        // An empty key means "none": OpenRouter lists its models to anyone.
-        let key: String
-        if provider == .openRouter {
-            key = try await readCredential(credential) ?? ""
-        } else {
-            key = try await requiredCredential(credential)
-        }
-        let models = try await makeCatalog(provider, key).listModels(for: role.purpose)
+        var models: [LLMModelInfo]
+        var startedAt: Int
+        repeat {
+            startedAt = credentialRevision
+            // An empty key means "none": OpenRouter lists its models to anyone.
+            let key: String
+            if provider == .openRouter {
+                key = try await readCredential(credential) ?? ""
+            } else {
+                key = try await requiredCredential(credential)
+            }
+            models = try await makeCatalog(provider, key).listModels(for: role.purpose)
+            // A key saved or removed meanwhile makes this list another account's; ask again.
+        } while startedAt != credentialRevision
         modelLists[cacheKey] = models
         logger.info("Model list loaded", category: .ai, metadata: [
             "role": role.rawValue, "count": String(models.count),
@@ -443,6 +451,7 @@ final class AIConfigurationManager {
         invalidate()
         // A different key can belong to an account with different models.
         modelLists.removeAll()
+        credentialRevision += 1
         logger.info("API key saved", category: .settings, metadata: ["credential": kind.rawValue])
     }
 
@@ -451,6 +460,7 @@ final class AIConfigurationManager {
         storedCredentials.remove(kind)
         invalidate()
         modelLists.removeAll()
+        credentialRevision += 1
         logger.info("API key removed", category: .settings, metadata: ["credential": kind.rawValue])
     }
 
@@ -559,7 +569,10 @@ final class AIConfigurationManager {
                 decisionProvider: decisionProvider, decisionFailure: decisionFailure,
                 imageFailure: imageFailure
             )
-            resolved = built
+            // A Keychain read can fail for a moment, e.g. while the device is locked. Caching that
+            // would keep every request failing until a setting changed, so build again next time.
+            let readFailed = [textFailure, decisionFailure, imageFailure].contains { $0 is KeychainError }
+            if !readFailed { resolved = built }
             return built
         }
     }

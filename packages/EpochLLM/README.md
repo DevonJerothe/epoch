@@ -259,10 +259,10 @@ let arbiters = try await ModelCatalogService.jev(apiKey: typeSafeKey).listModels
 | Provider | Endpoint | Reported | `.text` | `.decisions` |
 | --- | --- | --- | --- | --- |
 | OpenAI | `GET https://api.openai.com/v1/models` | `id`, `owner`, `released`, `retirementDate` | Models whose ID has none of `openAINonTextModelMarkers` | Models matching `openAIDecisionModelPrefixes` (`gpt-6-luna`) |
-| OpenRouter | `GET https://openrouter.ai/api/v1/models` | `name`, `summary`, `contextLength`, `pricing`, `released`, `retirementDate`, `aliasTarget` | `endpoints=/api/v1/responses` | `endpoints=/api/alpha/decisions&output_modalities=decisions` |
+| OpenRouter | `GET https://openrouter.ai/api/v1/models` | `name`, `summary`, `contextLength`, `pricing`, `released`, `retirementDate`, `aliasTarget` | `endpoints=/api/v1/responses&output_modalities=text` | `endpoints=/api/alpha/decisions&output_modalities=decisions` |
 | TypeSafe | `GET https://api.typesafe.ai/v1/models` | `summary`, `released` | Throws | The account's Jev aliases |
 
-OpenAI's endpoint has no capability field or filter, so its `.text` list hides models by name (embeddings, audio, images, video, moderation), and its `.decisions` list is narrowed by a constant taken from the Decisions reference. Both are heuristics to revisit as OpenAI's lineup changes. OpenRouter's list is public, so `ModelCatalogService.openRouter()` works without a key. Its prices arrive as USD-per-token strings and are exposed per million tokens; its pages are followed through `links.next`. TypeSafe lists aliases only: versioned IDs such as `jev-1.14.0` are accepted by the API but not listed, and pricing is not in the response. Nothing is cached or retried. Implement `EpochModelCatalog` to supply another source.
+OpenAI's endpoint has no capability field or filter, so its `.text` list hides models by name (embeddings, audio, images, video, moderation, Chat Completions search models), and its `.decisions` list is narrowed by a constant taken from the Decisions reference. Both are heuristics to revisit as OpenAI's lineup changes. OpenRouter's list is public, so `ModelCatalogService.openRouter()` works without a key. Its prices arrive as USD-per-token strings and are exposed per million tokens; its pages are followed through `links.next`. TypeSafe lists aliases only: versioned IDs such as `jev-1.14.0` are accepted by the API but not listed, and pricing is not in the response. Nothing is cached or retried. Implement `EpochModelCatalog` to supply another source.
 
 ## Checking an API key
 

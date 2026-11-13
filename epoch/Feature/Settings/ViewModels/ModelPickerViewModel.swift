@@ -19,6 +19,7 @@ final class ModelPickerViewModel {
     private(set) var state: State = .loading
     private(set) var models: [LLMModelInfo] = []
     var query = ""
+    @ObservationIgnored private var loadCount = 0
 
     init(role: ModelRole, configuration: AIConfigurationManager, errors: ErrorManager? = nil) {
         self.role = role
@@ -52,14 +53,24 @@ final class ModelPickerViewModel {
     }
 
     func load(refresh: Bool = false) async {
+        // The first load and a pull-to-refresh can overlap; only the newest may set the state.
+        loadCount += 1
+        let thisLoad = loadCount
         state = .loading
         do {
-            models = try await configuration.availableModels(for: role, refresh: refresh)
+            let loaded = try await configuration.availableModels(for: role, refresh: refresh)
+            guard thisLoad == loadCount else { return }
+            models = loaded
             state = .loaded
         } catch {
             // The failure is shown in place of the list, so no banner is raised for it.
             errors.report(error, context: "Loading \(providerName) models", presentation: .logOnly)
-            guard let description = ErrorDescription.describe(error) else { return }
+            guard thisLoad == loadCount else { return }
+            guard let description = errors.describe(error) else {
+                // Cancelled: fall back to whatever was already on screen.
+                state = .loaded
+                return
+            }
             models = []
             state = .failed(description)
         }

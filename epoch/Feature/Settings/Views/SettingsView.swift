@@ -123,6 +123,8 @@ struct SettingsView: View {
                     .autocorrectionDisabled()
                     .submitLabel(.done)
                     .onSubmit { Task { await viewModel.saveKey(for: kind) } }
+                    // The key being checked is the one that gets saved, so it must not change.
+                    .disabled(viewModel.isSaving(kind))
                 }
                 HStack(spacing: theme.spacing.lg) {
                     // Quill once there is something to save; muted while there is not.

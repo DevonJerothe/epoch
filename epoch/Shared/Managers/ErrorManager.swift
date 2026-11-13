@@ -178,7 +178,7 @@ final class ErrorManager {
         presentation: Presentation = .banner,
         retry: (@MainActor () async -> Void)? = nil
     ) {
-        guard var description = ErrorDescription.describe(error) else {
+        guard let description = describe(error) else {
             logger.debug("\(context) was cancelled", category: .error)
             return
         }
@@ -193,14 +193,22 @@ final class ErrorManager {
             "detail": String(describing: error),
         ])
 
-        // Provider messages can echo a key back, so what is shown is redacted too.
-        description.message = logger.redactor.redact(description.message)
         let presented = PresentedError(description: description, context: context, retry: retry)
         switch presentation {
         case .banner: banner = presented
         case .alert: alert = presented
         case .logOnly: break
         }
+    }
+
+    /// What to show for an error, for call sites that display it in their own UI. Provider
+    /// messages can echo a key back, so the text is redacted exactly as `report` redacts it.
+    /// `nil` for cancellations.
+    func describe(_ error: any Error) -> ErrorDescription? {
+        guard var description = ErrorDescription.describe(error) else { return nil }
+        description.title = logger.redactor.redact(description.title)
+        description.message = logger.redactor.redact(description.message)
+        return description
     }
 
     func dismissBanner() {

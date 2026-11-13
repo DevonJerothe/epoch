@@ -88,7 +88,10 @@ private let openAIModels = #"""
     #expect(models[2].owner == "openai")
     #expect(models[2].retirementDate == "2026-10-23")
     #expect(models[2].released == Date(timeIntervalSince1970: 1_686_935_002))
-    for id in ["tts-2", "whisper-2", "gpt-9-transcribe", "gpt-9-realtime", "dall-e-4", "sora-3"] {
+    for id in [
+        "tts-2", "whisper-2", "gpt-9-transcribe", "gpt-9-realtime", "dall-e-4", "sora-3",
+        "gpt-5-search-api", "gpt-4o-mini-search-preview",
+    ] {
         #expect(!ModelCatalogService.isOpenAITextModel(id), "\(id)")
     }
     #expect(ModelCatalogService.isOpenAITextModel("gpt-9-mini"))
@@ -146,7 +149,9 @@ private let openRouterLastPage = #"""
     #expect(requests.count == 2)
     #expect(requests[0].url?.host == "openrouter.ai")
     #expect(requests[0].url?.path == "/api/v1/models")
-    #expect(query(requests[0]) == ["limit": "500", "endpoints": "/api/v1/responses"])
+    #expect(query(requests[0]) == [
+        "limit": "500", "endpoints": "/api/v1/responses", "output_modalities": "text",
+    ])
     #expect(requests[0].value(forHTTPHeaderField: "Authorization") == "Bearer router-key")
     #expect(requests[0].value(forHTTPHeaderField: "X-Title") == "Epoch")
     #expect(query(requests[1])["offset"] == "500")

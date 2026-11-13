@@ -69,12 +69,16 @@ nonisolated final class LogRedactor: Sendable {
 
     private static let patterns: [(expression: NSRegularExpression, template: String)] = {
         let sources: [(String, String)] = [
+            // A whole Authorization value, any scheme. Runs before the generic key/value rule,
+            // which would stop at the scheme name and leave the credential behind.
+            (#"(?i)(authorization["']?\s*[:=]\s*["']?)(?:([A-Za-z][A-Za-z0-9-]*)\s+)?[^\s"',;&]+"#,
+             "$1$2 \(placeholder)"),
             (#"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+"#, "Bearer \(placeholder)"),
             // OpenAI (sk-, sk-proj-) and OpenRouter (sk-or-v1-) keys.
             (#"\b(?:sk|pk|rk)-[A-Za-z0-9_-]{8,}"#, placeholder),
             // Replicate tokens.
             (#"\br8_[A-Za-z0-9]{8,}"#, placeholder),
-            (#"(?i)((?:api[_-]?key|authorization|token|secret|password)["']?\s*[:=]\s*["']?)[^\s"',;&]+"#,
+            (#"(?i)((?:api[_-]?key|token|secret|password)["']?\s*[:=]\s*["']?)[^\s"',;&]+"#,
              "$1\(placeholder)"),
         ]
         return sources.compactMap { source, template in
@@ -84,6 +88,14 @@ nonisolated final class LogRedactor: Sendable {
     }()
 
     private let secrets = OSAllocatedUnfairLock(initialState: Set<String>())
+
+    /// True for a metadata field whose name says its value is a credential, e.g. `api_key`,
+    /// `Authorization`, or `access_token`. Counts such as `input_tokens` are not.
+    static func isSensitiveField(_ name: String) -> Bool {
+        let name = name.lowercased().filter { $0.isLetter || $0.isNumber }
+        return name.hasSuffix("token")
+            || ["apikey", "authorization", "secret", "password"].contains { name.contains($0) }
+    }
 
     /// Remembers a secret so every later occurrence is redacted, whatever its format.
     func register(_ secret: String) {
@@ -131,7 +143,10 @@ nonisolated final class LoggingManager: Sendable {
         let entry = LogEntry(
             date: Date(), level: level, category: category,
             message: redactor.redact(message),
-            metadata: metadata.mapValues { redactor.redact($0) }
+            metadata: Dictionary(uniqueKeysWithValues: metadata.map { name, value in
+                // A value under a credential-like name is hidden whatever it looks like.
+                (name, LogRedactor.isSensitiveField(name) ? LogRedactor.placeholder : redactor.redact(value))
+            })
         )
         for sink in sinks.withLock({ $0 }) { sink.record(entry) }
     }
