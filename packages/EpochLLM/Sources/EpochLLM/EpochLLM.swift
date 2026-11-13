@@ -22,14 +22,14 @@ public protocol EpochLLMService: Sendable {
 public actor EpochAIManager {
     private var services: [LLMServiceID: any EpochLLMService]
     public private(set) var selectedService: LLMServiceID
-    private var imageService: ReplicateImageService?
+    private var imageService: (any EpochImageService)?
     private var decisionServices: [LLMServiceID: any EpochDecisionService] = [:]
     /// Selected independently of the text service; the first registered decision
     /// service is selected until `selectDecisionService(_:)` is called.
     public private(set) var selectedDecisionService: LLMServiceID?
 
     public init(
-        service: any EpochLLMService, imageService: ReplicateImageService? = nil,
+        service: any EpochLLMService, imageService: (any EpochImageService)? = nil,
         decisionService: (any EpochDecisionService)? = nil
     ) {
         services = [service.id: service]
@@ -60,14 +60,15 @@ public actor EpochAIManager {
         return try await provider.decide(request)
     }
 
-    public func configureImageGeneration(_ service: ReplicateImageService) {
+    /// Pass `nil` to turn image generation off.
+    public func configureImageGeneration(_ service: (any EpochImageService)?) {
         imageService = service
     }
 
-    /// Image generation uses Replicate independently of the selected text service.
+    /// Image generation is configured independently of the selected text service.
     public func generateImage(_ request: ImageGenerationRequest) async throws -> ImageGenerationResponse {
         guard let provider = imageService else {
-            throw LLMError.invalidConfiguration("Configure a Replicate image service before generating images.")
+            throw LLMError.invalidConfiguration("Configure an image service before generating images.")
         }
         return try await provider.generateImage(request)
     }

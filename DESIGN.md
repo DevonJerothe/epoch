@@ -123,6 +123,8 @@ Tapping a dotted name highlights it in `press` and raises a short sheet: line sk
 - **First run:** the same layout as Stories, so a new player learns one list. Title "Stories", italic line "Choose one to begin, or describe your own" (the last words a quill link). Each world is a plate, genre eyebrow, title and one-line pitch, with the same ornament between them. No hero, progress or meta line. Tapping a world opens Story details.
 - **Story details:** a scrolling page that tells the player what they are getting into before they start. Back button, full-width plate (240 tall), genre eyebrow, `display` title, premise in `narration` style, then dotted-leader facts (Length, Mood, Begins in). Sections, each with an eyebrow: "You begin as" (line-sketch portrait, pre-made hero name, class, one sentence, key stats, quill "Make your own hero instead"), "Your first quest" (title and italic objective), "People you may meet" and "From the archive" (pre-generated people and lore as hairline rows with an italic line each; "Others stay unnamed until you meet them"), "You set out with" (starting items as a sentence). The page ends with the filled quill button "Begin as Wren". All of this content is pre-generated with the world and seeds the Journal and Pack once play begins.
 
+- **Settings:** a plain page of eyebrow sections ("Narrator", "Decisions", "Illustrator"). Providers are a filter row (sans words, weight marks current). Model IDs and API keys are typed on a writing line over a hairline, with an italic helper line beneath. "Save Key" is quill because it waits on the reader; Replace, Remove and Cancel are utility actions in `inkSoft`. A saved key is never shown again.
+
 ## 11. Spacing and sizes
 
 - 4 pt scale. Margins: 28 for narration and lists, 20 for the folio and composer, 12 for edge icon buttons.
@@ -141,7 +143,13 @@ Tapping a dotted name highlights it in `press` and raises a short sheet: line sk
 
 With Reduce Motion on, replace all of these with simple cross-fades.
 
-## 13. Accessibility
+## 13. Errors
+
+- **Banner (default):** a strip across the top of the screen on `leaf` with a hairline beneath and no shadow. A line icon in `rubric` is the only meaning color; the title is `ui` in `ink` and the message is `description` in `inkSoft`. Recovery actions ("Open Settings", "Try Again") are quill; "Dismiss" follows. It stays until dismissed or replaced, fades in and out, and is announced to VoiceOver.
+- **Alert:** the system alert, only for a failure the reader must acknowledge before continuing.
+- Say what happened and what to do next in plain words. Never show an API key, and do not repeat an error a screen already shows in place.
+
+## 14. Accessibility
 
 - Readable text no lighter than `inkMuted` (4.5:1 or better on `paper` and `leaf`).
 - Tap targets at least 44 × 44.
@@ -150,7 +158,7 @@ With Reduce Motion on, replace all of these with simple cross-fades.
 - Plates need an accessibility label describing the scene (ask the image tool for alt text).
 - Support Dynamic Type up to the accessibility sizes; the feed must reflow, not truncate.
 
-## 14. Don'ts
+## 15. Don'ts
 
 - Don't put narration, player turns or events in bubbles, cards or tinted panels.
 - Don't fill a surface with a meaning color.

@@ -101,7 +101,8 @@ final class DBManager {
             database = try await open()
             state = .ready
         } catch {
-            ErrorManager.shared.report(error, context: "Database startup")
+            // The app root shows its own failure screen with Retry, so a banner would repeat it.
+            ErrorManager.shared.report(error, context: "Database startup", presentation: .logOnly)
             state = .failed(.startupFailed(error.localizedDescription))
         }
         startupTask = nil

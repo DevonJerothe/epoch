@@ -1,5 +1,11 @@
 import Foundation
 
+/// An image provider. Replicate is the only hosted adapter; the protocol lets an
+/// app register its own, such as deterministic fixtures for development.
+public protocol EpochImageService: Sendable {
+    func generateImage(_ request: ImageGenerationRequest) async throws -> ImageGenerationResponse
+}
+
 /// Generates exactly one image using Replicate's FLUX Schnell model.
 public struct ImageGenerationRequest: Sendable {
     public var prompt: String

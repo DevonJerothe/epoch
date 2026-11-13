@@ -20,7 +20,7 @@ final class Coordinator {
 //    enum SheetType: Identifiable {}
 
     /// Single stack rooted at Stories; secondary areas like Settings are pushed from the nav bar.
-    var path = NavigationPath()
+    var path: [Destination] = []
 
     func push(_ destination: Destination) {
         path.append(destination)
@@ -32,6 +32,12 @@ final class Coordinator {
     }
 
     func popToRoot() {
-        path = NavigationPath()
+        path = []
+    }
+
+    /// Opens Settings unless it is already the current screen, e.g. from an error's recovery action.
+    func showSettings() {
+        guard path.last != .settings else { return }
+        push(.settings)
     }
 }

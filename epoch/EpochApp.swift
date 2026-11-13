@@ -13,6 +13,8 @@ struct epochApp: App {
     @State private var coordinator: Coordinator = .init()
     @State private var database = DBManager.shared
     @State private var theme = ThemeManager()
+    @State private var errors = ErrorManager.shared
+    @State private var aiConfiguration = AIConfigurationManager.shared
 
     var body: some Scene {
         WindowGroup {
@@ -61,6 +63,7 @@ struct epochApp: App {
             }
             // Database-dependent content stays gated until startup finishes off the main actor.
             .task { await database.start() }
+            .errorPresentation(errors, theme: theme) { coordinator.showSettings() }
             .environment(theme)
             .preferredColorScheme(theme.colorScheme)
             .tint(theme.colors.inkSoft)
@@ -80,10 +83,7 @@ struct epochApp: App {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(theme.colors.paper)
         case .settings:
-            Text("Settings View")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(theme.colors.paper)
-                .navigationTitle("Settings")
+            SettingsView(configuration: aiConfiguration)
         case .storyView(let uUID):
             Text("story: \(uUID)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
