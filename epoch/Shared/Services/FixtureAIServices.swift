@@ -26,6 +26,10 @@ nonisolated enum FixtureSeed {
 nonisolated struct FixtureTextService: EpochLLMService {
     static let serviceID = LLMServiceID(rawValue: "fixture")
     static let defaultModel = "fixture-narrator"
+    static let modelInfo = LLMModelInfo(
+        id: defaultModel, name: "Fixture Narrator",
+        summary: "Deterministic passages for development. No requests are sent."
+    )
 
     static let passages = [
         "The road narrows between two leaning stones, and beyond them the valley opens like a turned page. Smoke rises from a single chimney below. Somewhere near, water is running over rock.",
@@ -117,6 +121,10 @@ nonisolated struct FixtureTextService: EpochLLMService {
 /// and the question, so the same scene is always judged the same way. It never refuses.
 nonisolated struct FixtureDecisionService: EpochDecisionService {
     static let defaultModel = "fixture-arbiter"
+    static let modelInfo = LLMModelInfo(
+        id: defaultModel, name: "Fixture Arbiter",
+        summary: "Deterministic answers for development. No requests are sent."
+    )
 
     let id = FixtureTextService.serviceID
 

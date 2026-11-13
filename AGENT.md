@@ -40,6 +40,8 @@
 ## AI Configuration and Credentials
 
 - Get AI access from [AIConfigurationManager.swift](epoch/Shared/Managers/AIConfigurationManager.swift): `textClient()` and `decisionClient()` each return the configured `EpochAIManager` with that role's model ID, and `generateImage(_:)` covers illustrations. Do not build `EpochLLM` services or read API keys elsewhere.
+- Players choose models from the provider's own list (`availableModels(for:)`, shown by `ModelPickerView`); do not add free-text model ID entry. `EpochLLM`'s `ModelCatalogService` documents what each provider's models endpoint reports.
+- `saveCredential` checks a key with its provider before storing it; a rejected or uncheckable key is never saved. Do not write to `CredentialStore` directly.
 - API keys live only in the Keychain through `CredentialStore`. Never put them in `UserDefaults`, the database, logs, observable state, or tracked files.
 - Development builds can use deterministic fixtures with no key and no network: pick "Fixture" in Settings, or launch with `-EpochAIFixtures YES`.
 

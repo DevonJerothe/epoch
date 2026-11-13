@@ -24,7 +24,7 @@ nonisolated struct ErrorDescription: Equatable, Sendable {
         case let error as AIConfigurationError:
             ErrorDescription(
                 title: error.title, message: error.localizedDescription,
-                recovery: error == .emptyCredential ? .none : .openSettings
+                recovery: error.isEntryProblem ? .none : .openSettings
             )
         case let error as LLMError:
             describe(error)

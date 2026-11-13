@@ -81,6 +81,19 @@ nonisolated enum DecisionProvider: String, Codable, CaseIterable, Identifiable, 
     }
 }
 
+/// A role whose model the player chooses from the provider's list.
+nonisolated enum ModelRole: String, Hashable, Sendable {
+    case narrator
+    case decisions
+
+    var purpose: LLMModelPurpose {
+        switch self {
+        case .narrator: .text
+        case .decisions: .decisions
+        }
+    }
+}
+
 /// Non-secret AI preferences, persisted in `UserDefaults`. API keys never belong here.
 nonisolated struct AISettings: Codable, Equatable, Sendable {
     var textProvider: TextProvider = .openAI
@@ -119,6 +132,8 @@ nonisolated enum AIConfigurationError: LocalizedError, Equatable {
     case missingModel(TextProvider)
     case missingDecisionModel(DecisionProvider)
     case emptyCredential
+    /// The provider refused the key when it was checked, so it was not saved.
+    case rejectedCredential(CredentialKind)
     case imagesDisabled
     case fixturesUnavailable
 
@@ -127,8 +142,17 @@ nonisolated enum AIConfigurationError: LocalizedError, Equatable {
         case .missingCredential: "API key needed"
         case .missingModel, .missingDecisionModel: "Model needed"
         case .emptyCredential: "API key is empty"
+        case .rejectedCredential: "API key rejected"
         case .imagesDisabled: "Illustrations are off"
         case .fixturesUnavailable: "Fixtures unavailable"
+        }
+    }
+
+    /// True when the fix is to retype the key where it was entered, not to visit Settings.
+    var isEntryProblem: Bool {
+        switch self {
+        case .emptyCredential, .rejectedCredential: true
+        default: false
         }
     }
 
@@ -140,6 +164,8 @@ nonisolated enum AIConfigurationError: LocalizedError, Equatable {
             "Enter a model ID for \(provider.displayName) in Settings to continue."
         case .missingDecisionModel(let provider):
             "Enter a decision model ID for \(provider.displayName) in Settings to continue."
+        case .rejectedCredential(let kind):
+            "\(kind.displayName) didn't accept this key, so it wasn't saved. Check it and try again."
         case .emptyCredential:
             "Paste an API key before saving."
         case .imagesDisabled:
@@ -170,6 +196,12 @@ final class AIConfigurationManager {
         let model: String
     }
 
+    /// Builds the model catalog for a provider and its API key. Replaced in tests.
+    typealias CatalogFactory = @Sendable (ModelCatalogService.Provider, String) -> any EpochModelCatalog
+
+    /// Asks a provider whether a key works. Throws when it does not, or cannot be checked.
+    typealias KeyValidator = @Sendable (CredentialKind, String) async throws -> Void
+
     static let shared = AIConfigurationManager()
 
     /// Launch with `-EpochAIFixtures YES` (development builds) to use fixtures for text,
@@ -194,6 +226,10 @@ final class AIConfigurationManager {
     @ObservationIgnored private let credentials: any CredentialStore
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let logger: LoggingManager
+    @ObservationIgnored private let makeCatalog: CatalogFactory
+    @ObservationIgnored private let validateKey: KeyValidator
+    /// Model lists already fetched this launch, keyed by role and provider.
+    @ObservationIgnored private var modelLists: [String: [LLMModelInfo]] = [:]
     @ObservationIgnored private var resolved: Resolved?
     /// Bumped on every change so a build that was in flight is not cached.
     @ObservationIgnored private var generation = 0
@@ -202,8 +238,12 @@ final class AIConfigurationManager {
         credentials: any CredentialStore = KeychainCredentialStore(),
         defaults: UserDefaults = .standard,
         logger: LoggingManager = .shared,
-        fixturesAvailable: Bool = AIConfigurationManager.isDevelopmentBuild
+        fixturesAvailable: Bool = AIConfigurationManager.isDevelopmentBuild,
+        makeCatalog: @escaping CatalogFactory = AIConfigurationManager.liveCatalog,
+        validateKey: @escaping KeyValidator = AIConfigurationManager.liveKeyValidation
     ) {
+        self.makeCatalog = makeCatalog
+        self.validateKey = validateKey
         self.credentials = credentials
         self.defaults = defaults
         self.logger = logger
@@ -226,6 +266,25 @@ final class AIConfigurationManager {
             if loaded.decisionProvider == .fixture { loaded.decisionProvider = .openAI }
         }
         settings = loaded
+    }
+
+    nonisolated static func liveCatalog(
+        _ provider: ModelCatalogService.Provider, apiKey: String
+    ) -> any EpochModelCatalog {
+        switch provider {
+        case .openRouter: ModelCatalogService.openRouter(apiKey: apiKey.isEmpty ? nil : apiKey, appName: "Epoch")
+        case .openAI, .jev: ModelCatalogService(provider: provider, apiKey: apiKey)
+        }
+    }
+
+    nonisolated static func liveKeyValidation(_ kind: CredentialKind, apiKey: String) async throws {
+        let provider: APIKeyValidator.Provider = switch kind {
+        case .openAI: .openAI
+        case .openRouter: .openRouter
+        case .jev: .jev
+        case .replicate: .replicate
+        }
+        try await APIKeyValidator(provider: provider).validate(apiKey)
     }
 
     // MARK: Providers and models
@@ -267,6 +326,69 @@ final class AIConfigurationManager {
         update { $0.decisionModels[provider.rawValue] = trimmed.isEmpty ? nil : trimmed }
     }
 
+    /// The model chosen for a role under its current provider, or "" when none is chosen.
+    func selectedModel(for role: ModelRole) -> String {
+        switch role {
+        case .narrator: settings.model(for: settings.textProvider)
+        case .decisions: settings.model(for: settings.decisionProvider)
+        }
+    }
+
+    func selectModel(_ id: String, for role: ModelRole) {
+        switch role {
+        case .narrator: setTextModel(id, for: settings.textProvider)
+        case .decisions: setDecisionModel(id, for: settings.decisionProvider)
+        }
+    }
+
+    func providerName(for role: ModelRole) -> String {
+        switch role {
+        case .narrator: settings.textProvider.displayName
+        case .decisions: settings.decisionProvider.displayName
+        }
+    }
+
+    /// The models the role's provider offers, fetched from the provider's own models endpoint
+    /// with the saved key. Results are kept for this launch; pass `refresh` to fetch again.
+    /// Throws `AIConfigurationError.missingCredential` when the provider has no key yet,
+    /// except for OpenRouter, whose list is public and loads without one.
+    func availableModels(for role: ModelRole, refresh: Bool = false) async throws -> [LLMModelInfo] {
+        let provider: ModelCatalogService.Provider
+        let credential: CredentialKind
+        let cacheKey: String
+        switch role {
+        case .narrator:
+            cacheKey = "\(role.rawValue)|\(settings.textProvider.rawValue)"
+            switch settings.textProvider {
+            case .openAI: (provider, credential) = (.openAI, .openAI)
+            case .openRouter: (provider, credential) = (.openRouter, .openRouter)
+            case .fixture: return [FixtureTextService.modelInfo]
+            }
+        case .decisions:
+            cacheKey = "\(role.rawValue)|\(settings.decisionProvider.rawValue)"
+            switch settings.decisionProvider {
+            case .openAI: (provider, credential) = (.openAI, .openAI)
+            case .openRouter: (provider, credential) = (.openRouter, .openRouter)
+            case .jev: (provider, credential) = (.jev, .jev)
+            case .fixture: return [FixtureDecisionService.modelInfo]
+            }
+        }
+        if !refresh, let cached = modelLists[cacheKey] { return cached }
+        // An empty key means "none": OpenRouter lists its models to anyone.
+        let key: String
+        if provider == .openRouter {
+            key = try await readCredential(credential) ?? ""
+        } else {
+            key = try await requiredCredential(credential)
+        }
+        let models = try await makeCatalog(provider, key).listModels(for: role.purpose)
+        modelLists[cacheKey] = models
+        logger.info("Model list loaded", category: .ai, metadata: [
+            "role": role.rawValue, "count": String(models.count),
+        ])
+        return models
+    }
+
     func selectImageProvider(_ provider: ImageProvider) {
         guard availableImageProviders.contains(provider) else { return }
         update { $0.imageProvider = provider }
@@ -301,14 +423,26 @@ final class AIConfigurationManager {
         storedCredentials = stored
     }
 
+    /// Checks the key with its provider, then stores it. Throws
+    /// `AIConfigurationError.rejectedCredential` when the provider refuses it; a network or
+    /// provider failure during the check is rethrown as-is. Nothing is saved in either case.
     func saveCredential(_ value: String, for kind: CredentialKind) async throws {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw AIConfigurationError.emptyCredential }
-        // Registered before the write so a failure message cannot leak it either.
+        // Registered first so no failure message, from the check or the write, can leak it.
         logger.redactor.register(trimmed)
+        // A key the provider refuses, or that cannot be checked right now, is never stored.
+        do {
+            try await validateKey(kind, trimmed)
+        } catch let error as LLMError where error.isRejectedCredential {
+            logger.warning("API key rejected by provider", category: .settings, metadata: ["credential": kind.rawValue])
+            throw AIConfigurationError.rejectedCredential(kind)
+        }
         try await credentials.save(trimmed, for: kind)
         storedCredentials.insert(kind)
         invalidate()
+        // A different key can belong to an account with different models.
+        modelLists.removeAll()
         logger.info("API key saved", category: .settings, metadata: ["credential": kind.rawValue])
     }
 
@@ -316,6 +450,7 @@ final class AIConfigurationManager {
         try await credentials.remove(kind)
         storedCredentials.remove(kind)
         invalidate()
+        modelLists.removeAll()
         logger.info("API key removed", category: .settings, metadata: ["credential": kind.rawValue])
     }
 

@@ -164,7 +164,8 @@ struct AIConfigurationTests {
         fixturesAvailable: Bool = true
     ) -> AIConfigurationManager {
         AIConfigurationManager(
-            credentials: store, defaults: defaults, logger: LoggingManager(), fixturesAvailable: fixturesAvailable
+            credentials: store, defaults: defaults, logger: LoggingManager(), fixturesAvailable: fixturesAvailable,
+            validateKey: { _, _ in }
         )
     }
 
@@ -227,6 +228,50 @@ struct AIConfigurationTests {
         await #expect(throws: AIConfigurationError.emptyCredential) {
             try await manager.saveCredential("   ", for: .openAI)
         }
+    }
+
+    @Test func keysAreCheckedBeforeTheyAreSaved() async throws {
+        let store = InMemoryCredentialStore()
+        let checked = OSAllocatedUnfairLock(initialState: [String]())
+        let manager = AIConfigurationManager(
+            credentials: store, defaults: try makeDefaults(), logger: LoggingManager(), fixturesAvailable: true,
+            validateKey: { kind, key in
+                checked.withLock { $0.append("\(kind.rawValue):\(key)") }
+                switch key {
+                case "rejected-key-1234":
+                    throw LLMError.http(status: 401, message: "bad key", code: nil, retryAfter: nil)
+                case "offline-key-12345":
+                    throw URLError(.notConnectedToInternet)
+                default:
+                    break
+                }
+            }
+        )
+
+        await #expect(throws: AIConfigurationError.rejectedCredential(.openAI)) {
+            try await manager.saveCredential("rejected-key-1234", for: .openAI)
+        }
+        // A key that could not be checked is not saved either, and the cause is kept.
+        await #expect(throws: URLError.self) {
+            try await manager.saveCredential("offline-key-12345", for: .openAI)
+        }
+        #expect(try await store.read(.openAI) == nil)
+        #expect(manager.storedCredentials.isEmpty)
+
+        try await manager.saveCredential("  working-key-1234 ", for: .replicate)
+        #expect(try await store.read(.replicate) == "working-key-1234")
+        #expect(checked.withLock { $0 } == [
+            "openai:rejected-key-1234", "openai:offline-key-12345", "replicate:working-key-1234",
+        ])
+        // An empty key is refused without asking the provider.
+        await #expect(throws: AIConfigurationError.emptyCredential) {
+            try await manager.saveCredential(" ", for: .jev)
+        }
+        #expect(checked.withLock { $0 }.count == 3)
+
+        let rejection = ErrorDescription.describe(AIConfigurationError.rejectedCredential(.openAI))
+        #expect(rejection?.recovery == ErrorDescription.Recovery.none)
+        #expect(rejection?.message.contains("wasn't saved") == true)
     }
 
     @Test func textAndImagesAreConfiguredIndependently() async throws {
@@ -334,6 +379,203 @@ struct AIConfigurationTests {
         try await store.remove(.replicate)
         try await store.remove(.replicate)
         #expect(try await store.read(.replicate) == nil)
+    }
+}
+
+private nonisolated final class StubCatalog: EpochModelCatalog, Sendable {
+    struct Call: Equatable {
+        let provider: String
+        let key: String
+        let purpose: LLMModelPurpose
+    }
+
+    private let recorded = OSAllocatedUnfairLock(initialState: [Call]())
+    let models: [LLMModelInfo]
+    let failure: (any Error)?
+
+    init(models: [LLMModelInfo] = [], failure: (any Error)? = nil) {
+        self.models = models
+        self.failure = failure
+    }
+
+    var calls: [Call] { recorded.withLock { $0 } }
+
+    func factory() -> AIConfigurationManager.CatalogFactory {
+        { provider, key in BoundCatalog(stub: self, provider: String(describing: provider), key: key) }
+    }
+
+    private struct BoundCatalog: EpochModelCatalog {
+        let stub: StubCatalog
+        let provider: String
+        let key: String
+
+        func listModels(for purpose: LLMModelPurpose) async throws -> [LLMModelInfo] {
+            stub.recorded.withLock { $0.append(Call(provider: provider, key: key, purpose: purpose)) }
+            if let failure = stub.failure { throw failure }
+            return stub.models
+        }
+    }
+
+    func listModels(for purpose: LLMModelPurpose) async throws -> [LLMModelInfo] { models }
+}
+
+@MainActor
+struct ModelCatalogTests {
+    private let sample = [
+        LLMModelInfo(
+            id: "vendor/sonnet-large", name: "Sonnet Large", summary: "A capable storyteller.",
+            contextLength: 200_000, pricing: LLMModelPricing(inputPerMillionTokens: 3, outputPerMillionTokens: 15)
+        ),
+        LLMModelInfo(id: "plain-model", owner: "openai", retirementDate: "2027-01-01"),
+        LLMModelInfo(id: "~vendor/latest", name: "Vendor Latest", aliasTarget: "vendor/sonnet-large"),
+    ]
+
+    private func makeManager(_ stub: StubCatalog, keys: [CredentialKind: String]) throws -> AIConfigurationManager {
+        let name = "epoch.tests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defaults.removePersistentDomain(forName: name)
+        return AIConfigurationManager(
+            credentials: InMemoryCredentialStore(keys), defaults: defaults, logger: LoggingManager(),
+            fixturesAvailable: true, makeCatalog: stub.factory(), validateKey: { _, _ in }
+        )
+    }
+
+    @Test func listsModelsForEachRolesProviderAndKey() async throws {
+        let stub = StubCatalog(models: sample)
+        let manager = try makeManager(stub, keys: [.openAI: "openai-key-12345", .jev: "jev-key-1234567"])
+        manager.selectDecisionProvider(.jev)
+
+        #expect(try await manager.availableModels(for: .narrator) == sample)
+        #expect(try await manager.availableModels(for: .decisions) == sample)
+        #expect(stub.calls == [
+            .init(provider: "openAI", key: "openai-key-12345", purpose: .text),
+            .init(provider: "jev", key: "jev-key-1234567", purpose: .decisions),
+        ])
+
+        // A second look uses this launch's list; refreshing or changing the key asks again.
+        _ = try await manager.availableModels(for: .narrator)
+        #expect(stub.calls.count == 2)
+        _ = try await manager.availableModels(for: .narrator, refresh: true)
+        #expect(stub.calls.count == 3)
+        try await manager.saveCredential("openai-key-67890", for: .openAI)
+        _ = try await manager.availableModels(for: .narrator)
+        #expect(stub.calls.last == .init(provider: "openAI", key: "openai-key-67890", purpose: .text))
+    }
+
+    @Test func listingNeedsAKeyAndFixturesNeedNothing() async throws {
+        let stub = StubCatalog(models: sample)
+        let manager = try makeManager(stub, keys: [:])
+
+        await #expect(throws: AIConfigurationError.missingCredential(.openAI)) {
+            _ = try await manager.availableModels(for: .narrator)
+        }
+        manager.selectTextProvider(.fixture)
+        manager.selectDecisionProvider(.fixture)
+        #expect(try await manager.availableModels(for: .narrator).map(\.id) == [FixtureTextService.defaultModel])
+        #expect(try await manager.availableModels(for: .decisions).map(\.id) == [FixtureDecisionService.defaultModel])
+        #expect(stub.calls.isEmpty)
+    }
+
+    @Test func openRouterModelsLoadWithoutAKey() async throws {
+        let stub = StubCatalog(models: sample)
+        let manager = try makeManager(stub, keys: [:])
+        manager.selectTextProvider(.openRouter)
+        manager.selectDecisionProvider(.openRouter)
+
+        #expect(try await manager.availableModels(for: .narrator) == sample)
+        #expect(try await manager.availableModels(for: .decisions) == sample)
+        #expect(stub.calls == [
+            .init(provider: "openRouter", key: "", purpose: .text),
+            .init(provider: "openRouter", key: "", purpose: .decisions),
+        ])
+        // Choosing a model does not need a key; narrating with it still does.
+        manager.selectModel("vendor/sonnet-large", for: .narrator)
+        await #expect(throws: AIConfigurationError.missingCredential(.openRouter)) {
+            _ = try await manager.textClient()
+        }
+        // Once a key exists it is sent along.
+        try await manager.saveCredential("router-key-12345", for: .openRouter)
+        _ = try await manager.availableModels(for: .narrator)
+        #expect(stub.calls.last == .init(provider: "openRouter", key: "router-key-12345", purpose: .text))
+    }
+
+    @Test func pickerLoadsSearchesAndSelects() async throws {
+        let manager = try makeManager(StubCatalog(models: sample), keys: [.openAI: "openai-key-12345"])
+        let picker = ModelPickerViewModel(
+            role: .narrator, configuration: manager, errors: ErrorManager(logger: LoggingManager())
+        )
+        await picker.load()
+        #expect(picker.state == .loaded)
+        #expect(picker.results.count == 3)
+
+        picker.query = "SONNET storyteller"
+        #expect(picker.results.map(\.id) == ["vendor/sonnet-large"])
+        // Matches IDs, owners, and alias targets too.
+        picker.query = "openai"
+        #expect(picker.results.map(\.id) == ["plain-model"])
+        picker.query = "sonnet"
+        #expect(picker.results.map(\.id) == ["vendor/sonnet-large", "~vendor/latest"])
+        picker.query = "nothing-like-this"
+        #expect(picker.results.isEmpty)
+
+        picker.select(sample[1])
+        #expect(manager.settings.model(for: TextProvider.openAI) == "plain-model")
+        #expect(picker.selectedID == "plain-model")
+        #expect(!picker.selectionIsUnlisted)
+        manager.setTextModel("retired-model", for: .openAI)
+        #expect(picker.selectionIsUnlisted)
+    }
+
+    @Test func pickerShowsFailuresInPlace() async throws {
+        let errors = ErrorManager(logger: LoggingManager())
+        let rejected = StubCatalog(failure: LLMError.http(status: 401, message: "bad key", code: nil, retryAfter: nil))
+        let picker = ModelPickerViewModel(
+            role: .narrator, configuration: try makeManager(rejected, keys: [.openAI: "openai-key-12345"]),
+            errors: errors
+        )
+        await picker.load()
+        guard case .failed(let failure) = picker.state else {
+            Issue.record("Expected a failure state")
+            return
+        }
+        #expect(failure.recovery == .openSettings)
+        // Reported for logging, but not as a banner over the message already on screen.
+        #expect(errors.latestError is LLMError)
+        #expect(errors.banner == nil)
+
+        let noKey = ModelPickerViewModel(
+            role: .decisions, configuration: try makeManager(StubCatalog(), keys: [:]), errors: errors
+        )
+        await noKey.load()
+        #expect(noKey.state == .failed(try #require(
+            ErrorDescription.describe(AIConfigurationError.missingCredential(.openAI))
+        )))
+    }
+
+    @Test func rowsShowOnlyWhatTheProviderReports() {
+        #expect(ModelDetails.title(sample[0]) == "Sonnet Large")
+        #expect(ModelDetails.identifier(sample[0]) == "vendor/sonnet-large")
+        #expect(ModelDetails.facts(sample[0]) == "$3.00 in · $15.00 out per M tokens · 200K context")
+
+        #expect(ModelDetails.title(sample[1]) == "plain-model")
+        #expect(ModelDetails.identifier(sample[1]) == nil)
+        #expect(ModelDetails.facts(sample[1]) == "openai")
+        #expect(ModelDetails.facts(sample[2]) == "points to vendor/sonnet-large")
+        #expect(ModelDetails.facts(LLMModelInfo(id: "bare")) == nil)
+
+        #expect(ModelDetails.price(LLMModelPricing(inputPerMillionTokens: 0, outputPerMillionTokens: 0)) == "Free")
+        #expect(ModelDetails.price(LLMModelPricing(inputPerMillionTokens: 0.042, outputPerMillionTokens: nil))
+            == "$0.042 in per M tokens")
+        #expect(ModelDetails.dollars(0.0025) == "$0.0025")
+        #expect(ModelDetails.dollars(0.5) == "$0.50")
+        #expect(ModelDetails.tokens(8192) == "8K")
+        #expect(ModelDetails.tokens(1_048_576) == "1M")
+        #expect(ModelDetails.tokens(512) == "512")
+
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(secondsFromGMT: 0) ?? utc.timeZone
+        let dated = LLMModelInfo(id: "dated", released: Date(timeIntervalSince1970: 1_786_935_002))
+        #expect(ModelDetails.facts(dated, calendar: utc)?.contains("2026") == true)
     }
 }
 

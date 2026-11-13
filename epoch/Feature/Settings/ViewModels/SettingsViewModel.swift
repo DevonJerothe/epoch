@@ -9,8 +9,6 @@ final class SettingsViewModel {
     let configuration: AIConfigurationManager
     @ObservationIgnored private let errors: ErrorManager
 
-    var modelDraft: String
-    var decisionModelDraft: String
     var keyDrafts: [CredentialKind: String] = [:]
     /// Keys being replaced, which show the entry field although one is already stored.
     private(set) var replacing: Set<CredentialKind> = []
@@ -20,8 +18,6 @@ final class SettingsViewModel {
     init(configuration: AIConfigurationManager, errors: ErrorManager? = nil) {
         self.configuration = configuration
         self.errors = errors ?? .shared
-        modelDraft = configuration.settings.model(for: configuration.settings.textProvider)
-        decisionModelDraft = configuration.settings.model(for: configuration.settings.decisionProvider)
     }
 
     var textProvider: TextProvider { configuration.settings.textProvider }
@@ -44,30 +40,15 @@ final class SettingsViewModel {
     }
 
     func selectTextProvider(_ provider: TextProvider) {
-        // Keep what was typed for the old provider before showing the new provider's model.
-        commitModel()
         configuration.selectTextProvider(provider)
-        modelDraft = configuration.settings.model(for: textProvider)
-    }
-
-    func commitModel() {
-        configuration.setTextModel(modelDraft, for: textProvider)
     }
 
     func selectDecisionProvider(_ provider: DecisionProvider) {
-        commitDecisionModel()
         configuration.selectDecisionProvider(provider)
-        decisionModelDraft = configuration.settings.model(for: decisionProvider)
     }
 
-    func commitDecisionModel() {
-        configuration.setDecisionModel(decisionModelDraft, for: decisionProvider)
-    }
-
-    /// Saves both model fields, e.g. when leaving Settings without pressing Done.
-    func commitModels() {
-        commitModel()
-        commitDecisionModel()
+    func selectedModel(for role: ModelRole) -> String {
+        configuration.selectedModel(for: role)
     }
 
     func selectImageProvider(_ provider: ImageProvider) {
@@ -85,6 +66,10 @@ final class SettingsViewModel {
     func canSave(_ kind: CredentialKind) -> Bool {
         !saving.contains(kind)
             && !(keyDrafts[kind] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func isSaving(_ kind: CredentialKind) -> Bool {
+        saving.contains(kind)
     }
 
     func beginReplacing(_ kind: CredentialKind) {

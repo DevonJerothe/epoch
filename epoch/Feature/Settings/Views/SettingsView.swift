@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(ThemeManager.self) private var theme
+    @Environment(Coordinator.self) private var coordinator
     @State private var viewModel: SettingsViewModel
 
     init(configuration: AIConfigurationManager) {
@@ -27,7 +28,6 @@ struct SettingsView: View {
         .background(theme.colors.paper)
         .navigationTitle("Settings")
         .task { await viewModel.load() }
-        .onDisappear { viewModel.commitModels() }
         .confirmationDialog(
             "Remove this API key?",
             isPresented: Binding(
@@ -46,8 +46,7 @@ struct SettingsView: View {
     }
 
     private var narratorSection: some View {
-        @Bindable var viewModel = viewModel
-        return VStack(alignment: .leading, spacing: theme.spacing.md) {
+        VStack(alignment: .leading, spacing: theme.spacing.md) {
             eyebrow("Narrator")
             OptionWords(
                 options: viewModel.configuration.availableTextProviders,
@@ -57,16 +56,7 @@ struct SettingsView: View {
             if viewModel.textProvider == .fixture {
                 helper("Deterministic passages for development. No key is needed and no requests are sent.")
             } else {
-                VStack(alignment: .leading, spacing: theme.spacing.xs) {
-                    WritingLine {
-                        TextField("Model ID", text: $viewModel.modelDraft)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .submitLabel(.done)
-                            .onSubmit { viewModel.commitModel() }
-                    }
-                    helper("Model IDs belong to the provider. Epoch keeps one for each, so switching does not lose them.")
-                }
+                modelRow(.narrator, helper: "Epoch remembers a model for each provider, so switching does not lose it.")
                 if let kind = viewModel.textProvider.credential {
                     credential(kind)
                 }
@@ -75,8 +65,7 @@ struct SettingsView: View {
     }
 
     private var decisionSection: some View {
-        @Bindable var viewModel = viewModel
-        return VStack(alignment: .leading, spacing: theme.spacing.md) {
+        VStack(alignment: .leading, spacing: theme.spacing.md) {
             eyebrow("Decisions")
             OptionWords(
                 options: viewModel.configuration.availableDecisionProviders,
@@ -86,16 +75,7 @@ struct SettingsView: View {
             if viewModel.decisionProvider == .fixture {
                 helper("Deterministic answers for development. No key is needed and no requests are sent.")
             } else {
-                VStack(alignment: .leading, spacing: theme.spacing.xs) {
-                    WritingLine {
-                        TextField("Decision model ID", text: $viewModel.decisionModelDraft)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .submitLabel(.done)
-                            .onSubmit { viewModel.commitDecisionModel() }
-                    }
-                    helper("Judges intent, difficulty and outcomes. Its model is separate from the narrator's.")
-                }
+                modelRow(.decisions, helper: "Judges intent, difficulty and outcomes. Its model is separate from the narrator's.")
                 if let kind = viewModel.decisionProvider.credential {
                     if viewModel.decisionSharesNarratorKey {
                         helper("Uses the \(kind.displayName) key above.")
@@ -147,20 +127,20 @@ struct SettingsView: View {
                 HStack(spacing: theme.spacing.lg) {
                     // Quill once there is something to save; muted while there is not.
                     utilityButton(
-                        "Save Key",
+                        viewModel.isSaving(kind) ? "Checking Key…" : "Save Key",
                         ink: viewModel.canSave(kind) ? theme.colors.quill : theme.colors.inkMuted
                     ) {
                         Task { await viewModel.saveKey(for: kind) }
                     }
                     .disabled(!viewModel.canSave(kind))
-                    if viewModel.isStored(kind) {
+                    if viewModel.isStored(kind), !viewModel.isSaving(kind) {
                         utilityButton("Cancel") { viewModel.cancelReplacing(kind) }
                     }
                 }
                 helper(
                     viewModel.isStored(kind)
-                        ? "Saving replaces the key already in the Keychain."
-                        : "No key saved. Requests to \(kind.displayName) will fail until you add one. It is kept in this device's Keychain."
+                        ? "Epoch checks the new key with \(kind.displayName), then replaces the one in the Keychain."
+                        : "No key saved. Epoch checks it with \(kind.displayName), then keeps it in this device's Keychain."
                 )
             } else {
                 Text("\(kind.displayName) key saved in the Keychain.")
@@ -171,6 +151,34 @@ struct SettingsView: View {
                     utilityButton("Remove") { viewModel.pendingRemoval = kind }
                 }
             }
+        }
+    }
+
+    /// The chosen model over a hairline; tapping opens the provider's list. Choosing is quill
+    /// while it still waits on the reader.
+    private func modelRow(_ role: ModelRole, helper text: String) -> some View {
+        let model = viewModel.selectedModel(for: role)
+        return VStack(alignment: .leading, spacing: theme.spacing.xs) {
+            Button {
+                coordinator.push(.modelPicker(role))
+            } label: {
+                WritingLine {
+                    HStack(spacing: theme.spacing.xs) {
+                        Text(model.isEmpty ? "Choose a model" : model)
+                            .foregroundStyle(model.isEmpty ? theme.colors.quill : theme.colors.ink)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: theme.spacing.xs)
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(theme.colors.inkMuted)
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(model.isEmpty ? "Choose a model" : "Model, \(model)")
+            .accessibilityHint("Shows the models \(viewModel.configuration.providerName(for: role)) offers")
+            helper(text)
         }
     }
 

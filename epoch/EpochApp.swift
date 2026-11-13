@@ -84,6 +84,8 @@ struct epochApp: App {
                 .background(theme.colors.paper)
         case .settings:
             SettingsView(configuration: aiConfiguration)
+        case .modelPicker(let role):
+            ModelPickerView(role: role, configuration: aiConfiguration)
         case .storyView(let uUID):
             Text("story: \(uUID)")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

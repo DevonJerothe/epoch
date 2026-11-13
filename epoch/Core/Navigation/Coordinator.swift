@@ -15,6 +15,8 @@ final class Coordinator {
         case storyView(UUID)
         case storySettings(UUID)
         case settings
+        /// The list of models to choose from for a role, pushed from Settings.
+        case modelPicker(ModelRole)
     }
 
 //    enum SheetType: Identifiable {}
