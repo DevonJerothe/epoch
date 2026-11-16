@@ -2,7 +2,7 @@ import Foundation
 
 /// Only the official FLUX Schnell endpoint is supported. No automatic retries
 /// create additional paid predictions. The caller owns persistence of images.
-public struct ReplicateImageService: Sendable {
+public struct ReplicateImageService: EpochImageService {
     public static let model = "black-forest-labs/flux-schnell"
     public let timeoutInterval: TimeInterval
     private let apiKey: String

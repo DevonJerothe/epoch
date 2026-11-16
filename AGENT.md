@@ -34,7 +34,16 @@
 - Send every error caught in app code to [ErrorManager.swift](epoch/Shared/Managers/ErrorManager.swift) using `ErrorManager.shared.report(error, context: "Operation description")`.
 - Lower-level code and standalone packages should propagate errors to the app boundary for reporting; do not introduce dependencies on app managers into packages.
 - Component-specific error messages are allowed, but the underlying error must also reach the error manager. Do not silently discard operational failures with `try?` or empty catches.
-- The error manager owns centralized error logging and alert/banner control. Extend the stub as needed; route general logging through a dedicated logging manager when added, not scattered `print` calls.
+- The error manager logs every reported error and shows it as a banner (default) or alert. Pass `presentation: .logOnly` when the call site shows the failure in its own UI, and `retry:` when the operation can be re-run. Recovery actions ("Open Settings", "Try Again") come from `ErrorDescription.describe`; add new error types there.
+- Route general logging through [LoggingManager.swift](epoch/Shared/Managers/LoggingManager.swift) (`LoggingManager.shared.info(...)`, `.track(...)` for product events), not `print`. It redacts credentials before any sink sees an entry. Analytics platforms plug in as a `LogSink` added with `addSink(_:)`; do not call a vendor SDK from feature code.
+
+## AI Configuration and Credentials
+
+- Get AI access from [AIConfigurationManager.swift](epoch/Shared/Managers/AIConfigurationManager.swift): `textClient()` and `decisionClient()` each return the configured `EpochAIManager` with that role's model ID, and `generateImage(_:)` covers illustrations. Do not build `EpochLLM` services or read API keys elsewhere.
+- Players choose models from the provider's own list (`availableModels(for:)`, shown by `ModelPickerView`); do not add free-text model ID entry. `EpochLLM`'s `ModelCatalogService` documents what each provider's models endpoint reports.
+- `saveCredential` checks a key with its provider before storing it; a rejected or uncheckable key is never saved. Do not write to `CredentialStore` directly.
+- API keys live only in the Keychain through `CredentialStore`. Never put them in `UserDefaults`, the database, logs, observable state, or tracked files.
+- Development builds can use deterministic fixtures with no key and no network: pick "Fixture" in Settings, or launch with `-EpochAIFixtures YES`.
 
 ## Working Practices
 

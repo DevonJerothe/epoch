@@ -57,7 +57,7 @@ try image.imageData.write(to: destinationURL)
 
 `ImageGenerationRequest` defaults to a square PNG; JPG and WebP are also supported. `ImageGenerationResponse` contains the prediction `id`, `imageURL`, `imageData`, and `outputFormat`. The service downloads the image before returning, so download failures throw rather than returning a response without bytes. Replicate's output URLs are temporary: [API output files are removed after an hour by default](https://replicate.com/docs/topics/predictions/data-retention). Store `imageData` for persistent use.
 
-For an existing manager, call `await manager.configureImageGeneration(ReplicateImageService(apiKey: replicateKey))`. Selecting an OpenAI or OpenRouter text service does not affect image generation. The Replicate service can also be used directly with `try await service.generateImage(request)`.
+For an existing manager, call `await manager.configureImageGeneration(ReplicateImageService(apiKey: replicateKey))`. Selecting an OpenAI or OpenRouter text service does not affect image generation. The manager accepts any `EpochImageService`, so an app can supply its own adapter (Epoch uses this for development fixtures); pass `nil` to turn image generation off. The Replicate service can also be used directly with `try await service.generateImage(request)`.
 
 The adapter uses [Replicate's official model prediction endpoint](https://replicate.com/docs/reference/http#models.predictions.create) with `Prefer: wait`, then polls if needed until the prediction succeeds. An output in a still-processing prediction is not treated as a completed result. The default 120-second timeout covers generation, polling, and downloading together. Failed/canceled predictions throw `LLMError.responseFailed`; HTTP errors use `LLMError.http`, retaining Replicate's `detail` and `Retry-After`. Deadline expiry throws `URLError(.timedOut)`; network and decoding errors retain their original types. Cancel the calling task to stop network work and polling. Local cancellation or timeout does not guarantee cancellation of the paid prediction on Replicate.
 
@@ -247,6 +247,46 @@ Any question can return `.refusal` while the others still answer. Requests are v
 
 Not supported yet: image inputs (OpenAI base64 data URLs, TypeSafe/OpenRouter `assets`), TypeSafe `box` questions, OpenRouter provider routing preferences, and OpenAI prompt caching options. Recheck the beta/alpha contracts before relying on them in production.
 
+## Listing models
+
+`ModelCatalogService` fetches the models a provider offers from each provider's own endpoint, so an app can offer a list instead of asking for an ID. Results are `LLMModelInfo` values; only `id` is guaranteed, and other fields are `nil` when the provider does not report them.
+
+```swift
+let narrators = try await ModelCatalogService.openRouter(apiKey: openRouterKey).listModels(for: .text)
+let arbiters = try await ModelCatalogService.jev(apiKey: typeSafeKey).listModels(for: .decisions)
+```
+
+| Provider | Endpoint | Reported | `.text` | `.decisions` |
+| --- | --- | --- | --- | --- |
+| OpenAI | `GET https://api.openai.com/v1/models` | `id`, `owner`, `released`, `retirementDate` | Models whose ID has none of `openAINonTextModelMarkers` | Models matching `openAIDecisionModelPrefixes` (`gpt-6-luna`) |
+| OpenRouter | `GET https://openrouter.ai/api/v1/models` | `name`, `summary`, `contextLength`, `pricing`, `released`, `retirementDate`, `aliasTarget` | `endpoints=/api/v1/responses&output_modalities=text` | `endpoints=/api/alpha/decisions&output_modalities=decisions` |
+| TypeSafe | `GET https://api.typesafe.ai/v1/models` | `summary`, `released` | Throws | The account's Jev aliases |
+
+OpenAI's endpoint has no capability field or filter, so its `.text` list hides models by name (embeddings, audio, images, video, moderation, Chat Completions search models), and its `.decisions` list is narrowed by a constant taken from the Decisions reference. Both are heuristics to revisit as OpenAI's lineup changes. OpenRouter's list is public, so `ModelCatalogService.openRouter()` works without a key. Its prices arrive as USD-per-token strings and are exposed per million tokens; its pages are followed through `links.next`. TypeSafe lists aliases only: versioned IDs such as `jev-1.14.0` are accepted by the API but not listed, and pricing is not in the response. Nothing is cached or retried. Implement `EpochModelCatalog` to supply another source.
+
+## Checking an API key
+
+`APIKeyValidator` asks a provider whether a key works before an app stores it, using one authenticated GET that generates and bills nothing.
+
+```swift
+do {
+    try await APIKeyValidator(provider: .openRouter).validate(typedKey)
+} catch let error as LLMError where error.isRejectedCredential {
+    // 401 or 403: the provider refused this key.
+} catch {
+    // Network or provider trouble: the key was not checked, which is not the same as wrong.
+}
+```
+
+| Provider | Request |
+| --- | --- |
+| OpenAI | `GET https://api.openai.com/v1/models` |
+| OpenRouter | `GET https://openrouter.ai/api/v1/key` (its models list is public, so it proves nothing) |
+| TypeSafe | `GET https://api.typesafe.ai/v1/models` |
+| Replicate | `GET https://api.replicate.com/v1/account` |
+
+A key that passes can still fail later for lack of credit or model access.
+
 ## Stateless history and errors
 
 `store: false` is enforced for both providers, in both modes. There is no `previous_response_id` or server-side conversation API. Requests include `reasoning.encrypted_content`, and `LLMItem` retains full output JSON for replay. `request.append(response)` adds those items in order. The SDK keeps no conversation state or persistent credential storage.
@@ -259,7 +299,7 @@ Implement the `Sendable` `EpochLLMService` protocol (`id`, `send`, `stream`) and
 
 **LM Studio REST API support is post MVP.** Add a separate adapter translating `LLMRequest` into LM Studio's REST format and its responses/stream into `LLMResponse` / `LLMStreamEvent`. It should maintain stateless requests and map native history/tool data into replayable items without changes to the manager. No LM Studio endpoint or Chat Completions fallback is enabled today.
 
-Built-in hosted tools, model discovery, automatic tool execution, and automatic retries are outside this MVP. The Xcode project references `packages/EpochLLM` as a local package dependency and links its `EpochLLM` library product to the app target. The package appears under the `packages` group in the project navigator, and its files are tracked by the main project's Git repository.
+Built-in hosted tools, automatic tool execution, and automatic retries are outside this MVP. The Xcode project references `packages/EpochLLM` as a local package dependency and links its `EpochLLM` library product to the app target. The package appears under the `packages` group in the project navigator, and its files are tracked by the main project's Git repository.
 
 ## Validation and API references
 
